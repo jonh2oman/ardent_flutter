@@ -9,6 +9,7 @@ import 'providers/auth_provider.dart';
 import 'widgets/stat_card.dart';
 import 'screens/personnel_screen.dart';
 import 'screens/attendance_screen.dart';
+import 'screens/calendar_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -291,6 +292,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const PersonnelScreen();
       case 2:
         return const AttendanceScreen();
+      case 3:
+        return const CalendarScreen();
       default:
         return Center(child: Text('Module ${(_selectedIndex + 1)} Coming Soon'));
     }
