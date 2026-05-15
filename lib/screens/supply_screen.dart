@@ -21,7 +21,10 @@ class _SupplyScreenState extends State<SupplyScreen> {
     final theme = Theme.of(context);
     
     final cadets = List<dynamic>.from(authProvider.corpsData?.settings['cadets'] ?? [])
-        .map((c) => UserData.fromMap(Map<String, dynamic>.from(c), c['uid']))
+        .map((c) {
+          final uid = c['uid']?.toString() ?? 'unknown';
+          return UserData.fromMap(Map<String, dynamic>.from(c), uid);
+        })
         .where((c) => c.name.toLowerCase().contains(_searchQuery.toLowerCase()))
         .toList();
 
@@ -77,7 +80,10 @@ class _SupplyScreenState extends State<SupplyScreen> {
                     child: ExpansionTile(
                       leading: CircleAvatar(
                         backgroundColor: Colors.blueAccent.withOpacity(0.2),
-                        child: Text(cadet.name[0], style: const TextStyle(color: Colors.blueAccent)),
+                        child: Text(
+                          cadet.name.isNotEmpty ? cadet.name[0].toUpperCase() : '?', 
+                          style: const TextStyle(color: Colors.blueAccent)
+                        ),
                       ),
                       title: Text(cadet.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Text('${cadet.rank ?? 'Cadet'} • ${cadet.phase ?? 'No Phase'}', style: const TextStyle(fontSize: 12, color: Colors.white30)),
