@@ -2,10 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'providers/auth_provider.dart';
 import 'widgets/stat_card.dart';
+import 'screens/personnel_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -280,6 +282,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     switch (_selectedIndex) {
       case 0:
         return const DashboardHome();
+      case 1:
+        return const PersonnelScreen();
       default:
         return Center(child: Text('Module ${(_selectedIndex + 1)} Coming Soon'));
     }
@@ -292,6 +296,19 @@ class DashboardHome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final theme = Theme.of(context);
+    
+    final List<dynamic> cadets = authProvider.corpsData?.settings['cadets'] ?? [];
+    final List<dynamic> staff = authProvider.corpsData?.settings['staff'] ?? [];
+    final int activeCadets = cadets.where((c) => c['isArchived'] != true).length;
+    
+    // Calculate attendance snapshot (placeholder logic matching web)
+    final attendance = authProvider.corpsData?.trainingYears['current']?['attendance'] ?? {};
+    double attendancePercent = 100.0;
+    if (attendance.isNotEmpty) {
+      // Basic calculation for the summary
+      attendancePercent = 88.0; // We'll refine this once Attendance module is ported
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32.0),
@@ -346,11 +363,11 @@ class DashboardHome extends StatelessWidget {
             mainAxisSpacing: 16,
             crossAxisSpacing: 16,
             childAspectRatio: 2.5,
-            children: const [
-              StatCard(title: 'Personnel', value: '42', icon: LucideIcons.users, iconColor: Colors.blueAccent),
+            children: [
+              StatCard(title: 'Personnel', value: '${activeCadets + staff.length}', icon: LucideIcons.users, iconColor: Colors.blueAccent),
               StatCard(title: 'Training', value: '85%', icon: LucideIcons.checkCircle, iconColor: Colors.greenAccent),
-              StatCard(title: 'Attendance', value: '92%', icon: LucideIcons.percent, iconColor: Colors.amberAccent),
-              StatCard(title: 'Economy', value: '$1,240', icon: LucideIcons.dollarSign, iconColor: Colors.tealAccent),
+              StatCard(title: 'Attendance', value: '${attendancePercent.toInt()}%', icon: LucideIcons.percent, iconColor: Colors.amberAccent),
+              StatCard(title: 'Economy', value: '$0', icon: LucideIcons.dollarSign, iconColor: Colors.tealAccent),
             ],
           ),
           const SizedBox(height: 40),
