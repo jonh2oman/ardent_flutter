@@ -356,7 +356,7 @@ class DashboardHome extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Welcome back, ${authProvider.userData?.firstName ?? "Officer"}',
+                    'Welcome Aboard, ${authProvider.userData?.rank ?? ""} ${authProvider.userData?.lastName ?? "Officer"}',
                     style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0),
                   ),
                 ],
