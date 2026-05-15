@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +9,7 @@ import 'widgets/stat_card.dart';
 import 'screens/personnel_screen.dart';
 import 'screens/attendance_screen.dart';
 import 'screens/calendar_screen.dart';
+import 'screens/exchange_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -258,8 +258,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 label: Text('Personnel', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
               ),
               NavigationRailDestination(
-                icon: Icon(LucideIcons.clipboardCheck),
-                label: Text('Attendance', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                icon: Icon(LucideIcons.coins),
+                label: Text('Exchange', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
               ),
               NavigationRailDestination(
                 icon: Icon(LucideIcons.calendar),
@@ -291,7 +291,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 1:
         return const PersonnelScreen();
       case 2:
-        return const AttendanceScreen();
+        return const ExchangeScreen();
       case 3:
         return const CalendarScreen();
       default:

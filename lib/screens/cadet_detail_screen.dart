@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_data.dart';
 import '../widgets/stat_card.dart';
 import '../providers/auth_provider.dart';
@@ -74,6 +75,8 @@ class CadetDetailScreen extends StatelessWidget {
                 Expanded(child: StatCard(title: 'Age', value: age > 0 ? '$age' : '--', icon: LucideIcons.user, iconColor: Colors.blueAccent)),
                 const SizedBox(width: 16),
                 Expanded(child: StatCard(title: 'Attendance', value: '$attendancePercent%', icon: LucideIcons.checkCircle, iconColor: Colors.greenAccent)),
+                const SizedBox(width: 16),
+                Expanded(child: StatCard(title: 'Merits', value: '${cadet.merits}', icon: LucideIcons.coins, iconColor: Colors.amberAccent)),
               ],
             ),
             const SizedBox(height: 32),
@@ -125,10 +128,106 @@ class CadetDetailScreen extends StatelessWidget {
               _buildProgressRow('PO 108 (Drill)', 0.4),
               _buildProgressRow('PO 121 (Ropework)', 1.0),
             ]),
+
+            const SizedBox(height: 32),
+            
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amberAccent,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.all(20),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () => _showAwardMeritsDialog(context, auth),
+                icon: const Icon(LucideIcons.award),
+                label: const Text('AWARD MERITS', style: TextStyle(fontWeight: FontWeight.w900)),
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  void _showAwardMeritsDialog(BuildContext context, AuthProvider auth) {
+    final amountController = TextEditingController();
+    final reasonController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Award Merits', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: amountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Amount'),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(labelText: 'Reason (e.g. Sharp Uniform)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          ElevatedButton(
+            onPressed: () async {
+              final amount = int.tryParse(amountController.text) ?? 0;
+              if (amount > 0) {
+                await _awardMerits(auth, amount, reasonController.text);
+                if (context.mounted) Navigator.pop(context);
+              }
+            },
+            child: const Text('AWARD'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _awardMerits(AuthProvider auth, int amount, String reason) async {
+    final corpsId = auth.userData?.corpsId;
+    if (corpsId == null) return;
+
+    // 1. Log the transaction
+    await FirebaseFirestore.instance
+        .collection('corps')
+        .doc(corpsId)
+        .collection('cadets')
+        .doc(cadet.id)
+        .collection('transactions')
+        .add({
+      'type': 'Award',
+      'amount': amount,
+      'description': reason,
+      'issuer': auth.userData?.name ?? 'Staff',
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+
+    // 2. Update the cadet in the roster array
+    // Note: We're currently storing cadets in an array in settings.cadets.
+    // We need to find the cadet in the array and update them.
+    final corpsRef = FirebaseFirestore.instance.collection('corps').doc(corpsId);
+    final corpsDoc = await corpsRef.get();
+    if (!corpsDoc.exists) return;
+
+    final List<dynamic> cadets = List.from(corpsDoc.data()?['settings']?['cadets'] ?? []);
+    final index = cadets.indexWhere((c) => c['uid'] == cadet.id);
+    
+    if (index != -1) {
+      final currentMerits = cadets[index]['merits'] ?? 0;
+      cadets[index]['merits'] = currentMerits + amount;
+      
+      await corpsRef.update({
+        'settings.cadets': cadets,
+      });
+    }
   }
 
   int _calculateAge(DateTime? dob) {

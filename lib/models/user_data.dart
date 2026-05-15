@@ -12,6 +12,9 @@ class UserData {
   final String? element;
   final String? phase;
   
+  // Economy
+  final int merits;
+  
   // New Fields from Web App
   final String? cin;
   final String? phone;
@@ -36,6 +39,7 @@ class UserData {
     this.dob,
     this.element,
     this.phase,
+    this.merits = 0,
     this.cin,
     this.phone,
     this.personalEmail,
@@ -63,6 +67,7 @@ class UserData {
       dob: data['dob'] != null ? DateTime.tryParse(data['dob'].toString()) : null,
       element: data['element'],
       phase: data['phase']?.toString(),
+      merits: data['merits'] ?? 0,
       cin: data['cin'],
       phone: data['phone'],
       personalEmail: data['personalEmail'],
@@ -88,6 +93,7 @@ class UserData {
       'dob': dob?.toIso8601String(),
       'element': element,
       'phase': phase,
+      'merits': merits,
       'cin': cin,
       'phone': phone,
       'personalEmail': personalEmail,
