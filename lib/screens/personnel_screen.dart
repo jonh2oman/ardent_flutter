@@ -169,7 +169,6 @@ class _PersonnelScreenState extends State<PersonnelScreen> {
       },
     );
   }
-  }
 
   void _showAddCadetDialog(BuildContext context, AuthProvider auth) {
     int currentStep = 0;
