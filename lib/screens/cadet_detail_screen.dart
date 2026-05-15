@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import '../models/user_data.dart';
 import '../widgets/stat_card.dart';
+import '../providers/auth_provider.dart';
 
 class CadetDetailScreen extends StatelessWidget {
   final UserData cadet;
@@ -11,8 +13,25 @@ class CadetDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context);
     final theme = Theme.of(context);
     final age = _calculateAge(cadet.dob);
+    
+    // Calculate live attendance
+    final attendanceData = auth.attendance;
+    int totalNights = attendanceData.length;
+    int presentNights = 0;
+    
+    attendanceData.forEach((date, statuses) {
+      final status = statuses[cadet.id];
+      if (status == 'Present' || status == 'Late') {
+        presentNights++;
+      }
+    });
+    
+    final attendancePercent = totalNights > 0 
+      ? (presentNights / totalNights * 100).toInt() 
+      : 100;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -54,7 +73,7 @@ class CadetDetailScreen extends StatelessWidget {
               children: [
                 Expanded(child: StatCard(title: 'Age', value: age > 0 ? '$age' : '--', icon: LucideIcons.user, iconColor: Colors.blueAccent)),
                 const SizedBox(width: 16),
-                Expanded(child: StatCard(title: 'Attendance', value: '92%', icon: LucideIcons.checkCircle, iconColor: Colors.greenAccent)),
+                Expanded(child: StatCard(title: 'Attendance', value: '$attendancePercent%', icon: LucideIcons.checkCircle, iconColor: Colors.greenAccent)),
               ],
             ),
             const SizedBox(height: 32),

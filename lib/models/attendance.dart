@@ -1,35 +1,22 @@
 class AttendanceRecord {
-  final String cadetId;
-  final String status; // 'present', 'absent', 'excused'
-  final bool excused;
-  final bool arrivedLate;
-  final bool leftEarly;
+  final String dateId; // The ID of the training night
+  final Map<String, String> statuses; // cadetUid -> 'Present', 'Absent', 'Excused', 'Late'
 
   AttendanceRecord({
-    required this.cadetId,
-    required this.status,
-    this.excused = false,
-    this.arrivedLate = false,
-    this.leftEarly = false,
+    required this.dateId,
+    required this.statuses,
   });
 
-  factory AttendanceRecord.fromMap(Map<String, dynamic> map) {
+  factory AttendanceRecord.fromMap(Map<String, dynamic> data, String id) {
     return AttendanceRecord(
-      cadetId: map['cadetId'] ?? '',
-      status: map['status'] ?? '',
-      excused: map['excused'] ?? false,
-      arrivedLate: map['arrivedLate'] ?? false,
-      leftEarly: map['leftEarly'] ?? false,
+      dateId: id,
+      statuses: Map<String, String>.from(data['statuses'] ?? {}),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'cadetId': cadetId,
-      'status': status,
-      'excused': excused,
-      'arrivedLate': arrivedLate,
-      'leftEarly': leftEarly,
+      'statuses': statuses,
     };
   }
 }

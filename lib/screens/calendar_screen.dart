@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/auth_provider.dart';
 import '../models/calendar.dart';
 import '../data/curriculum.dart';
+import 'attendance_screen.dart';
 
 class CalendarScreen extends StatelessWidget {
   const CalendarScreen({super.key});
@@ -198,6 +199,21 @@ class CalendarScreen extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
                 ),
                 const Spacer(),
+                IconButton(
+                  icon: const Icon(LucideIcons.checkSquare, size: 18, color: Colors.white70),
+                  tooltip: 'Mark Attendance',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AttendanceScreen(
+                          dateId: day.date,
+                          dateName: DateFormat('EEEE, MMM d').format(DateTime.parse(day.date)),
+                        ),
+                      ),
+                    );
+                  },
+                ),
                 IconButton(
                   icon: const Icon(LucideIcons.trash2, size: 18, color: Colors.white30),
                   onPressed: () => _deleteEvent(day.date, auth),
