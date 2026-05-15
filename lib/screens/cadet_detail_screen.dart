@@ -12,7 +12,7 @@ class CadetDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final age = _calculateAge(cadet.dateOfBirth);
+    final age = _calculateAge(cadet.dob);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -32,15 +32,15 @@ class CadetDetailScreen extends StatelessWidget {
                 CircleAvatar(
                   radius: 40,
                   backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                  child: Text(cadet.name[0], style: TextStyle(fontSize: 32, color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
+                  child: Text(cadet.name.isNotEmpty ? cadet.name[0] : 'C', style: TextStyle(fontSize: 32, color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(width: 20),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(cadet.rank, style: TextStyle(fontSize: 18, color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
+                    Text(cadet.rank ?? 'Cadet', style: TextStyle(fontSize: 18, color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
                     Text(cadet.name, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -1.0)),
-                    Text(cadet.role.toUpperCase(), style: const TextStyle(fontSize: 12, color: Colors.white30, fontWeight: FontWeight.bold)),
+                    Text('PHASE ${cadet.phase ?? 'N/A'}', style: const TextStyle(fontSize: 12, color: Colors.white30, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ],
@@ -50,7 +50,7 @@ class CadetDetailScreen extends StatelessWidget {
             // Quick Stats
             Row(
               children: [
-                Expanded(child: StatCard(title: 'Age', value: '$age', icon: LucideIcons.user, iconColor: Colors.blueAccent)),
+                Expanded(child: StatCard(title: 'Age', value: age > 0 ? '$age' : '--', icon: LucideIcons.user, iconColor: Colors.blueAccent)),
                 const SizedBox(width: 16),
                 Expanded(child: StatCard(title: 'Attendance', value: '92%', icon: LucideIcons.checkCircle, iconColor: Colors.greenAccent)),
               ],
@@ -59,15 +59,15 @@ class CadetDetailScreen extends StatelessWidget {
 
             // Details Sections
             _buildSection(theme, 'Personal Information', [
-              _buildDetailRow('Rank', cadet.rank),
-              _buildDetailRow('Element', cadet.element),
-              _buildDetailRow('Division', 'Main Division'), // Placeholder
-              _buildDetailRow('Date of Birth', DateFormat('MMM d, yyyy').format(cadet.dateOfBirth)),
+              _buildDetailRow('Rank', cadet.rank ?? 'Cadet'),
+              _buildDetailRow('Element', cadet.element ?? 'Sea'),
+              _buildDetailRow('Date of Birth', cadet.dob != null ? DateFormat('MMM d, yyyy').format(cadet.dob!) : 'Unknown'),
+              _buildDetailRow('Email', cadet.email),
             ]),
             
             const SizedBox(height: 32),
             
-            _buildSection(theme, 'Training Progress (Phase 1)', [
+            _buildSection(theme, 'Training Progress', [
               _buildProgressRow('PO 107 (Sea Cadet Service)', 0.8),
               _buildProgressRow('PO 108 (Drill)', 0.4),
               _buildProgressRow('PO 121 (Ropework)', 1.0),
@@ -78,7 +78,8 @@ class CadetDetailScreen extends StatelessWidget {
     );
   }
 
-  int _calculateAge(DateTime dob) {
+  int _calculateAge(DateTime? dob) {
+    if (dob == null) return 0;
     return DateTime.now().year - dob.year;
   }
 

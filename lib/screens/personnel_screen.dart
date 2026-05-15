@@ -94,14 +94,15 @@ class _PersonnelScreenState extends State<PersonnelScreen> {
                 trailing: Icon(LucideIcons.chevronRight, size: 16, color: theme.iconTheme.color?.withOpacity(0.3)),
                 onTap: () {
                   final userData = UserData(
-                    uid: cadet['uid'] ?? '',
+                    id: cadet['uid'] ?? '',
                     email: cadet['email'] ?? '',
-                    name: "${cadet['firstName']} ${cadet['lastName']}",
-                    role: 'cadet',
-                    corpsId: authProvider.userData?.corpsId ?? '',
+                    firstName: cadet['firstName'],
+                    lastName: cadet['lastName'],
                     rank: cadet['rank'] ?? 'Cadet',
+                    corpsId: authProvider.userData?.corpsId ?? '',
                     element: authProvider.corpsData?.element ?? 'Sea',
-                    dateOfBirth: cadet['dob'] != null ? DateTime.parse(cadet['dob']) : DateTime.now(),
+                    dob: cadet['dob'] != null ? DateTime.tryParse(cadet['dob'].toString()) : null,
+                    phase: cadet['phase']?.toString(),
                   );
                   Navigator.push(
                     context, 
