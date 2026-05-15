@@ -121,7 +121,7 @@ class CalendarScreen extends StatelessWidget {
               ],
             ),
           ),
-          const Divider(height: 1, color: Colors.white05),
+          Divider(height: 1, color: Colors.white.withOpacity(0.05)),
           // Content
           Padding(
             padding: const EdgeInsets.all(20),
