@@ -361,11 +361,6 @@ class DashboardHome extends StatelessWidget {
                       : 'Welcome Aboard, ${authProvider.userData?.rank ?? ""} ${authProvider.userData?.lastName ?? "Officer"}'.toUpperCase(),
                     style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0),
                   ),
-                  if (authProvider.userData != null)
-                    Text(
-                      authProvider.userData!.email.toLowerCase(),
-                      style: TextStyle(fontSize: 12, color: theme.colorScheme.primary.withOpacity(0.5), fontWeight: FontWeight.bold),
-                    ),
                 ],
               ),
               Container(
