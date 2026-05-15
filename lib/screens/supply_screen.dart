@@ -115,6 +115,14 @@ class _SupplyScreenState extends State<SupplyScreen> {
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () => _showLoanCardPreview(context, cadet),
+                                      icon: const Icon(LucideIcons.printer, size: 14),
+                                      label: const Text('Loan Card'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
                                     child: ElevatedButton.icon(
                                       onPressed: () => _showIssueKitDialog(context, authProvider, cadet),
                                       icon: const Icon(LucideIcons.plusCircle, size: 14),
@@ -237,6 +245,103 @@ class _SupplyScreenState extends State<SupplyScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showLoanCardPreview(BuildContext context, UserData cadet) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog.fullscreen(
+        backgroundColor: Colors.white,
+        child: Column(
+          children: [
+            AppBar(
+              backgroundColor: Colors.blue[900],
+              title: Text('Loan Card: ${cadet.name}'),
+              actions: [
+                IconButton(icon: const Icon(LucideIcons.printer), onPressed: () {}),
+                IconButton(icon: const Icon(LucideIcons.x), onPressed: () => Navigator.pop(context)),
+              ],
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(40),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Column(
+                        children: [
+                          const Text('PERSONAL ISSUE & LOAN CARD', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.black)),
+                          const Text('RCSCC 288 ARDENT - SUPPLY DEPARTMENT', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                          const SizedBox(height: 10),
+                          Container(height: 2, width: 250, color: Colors.black),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildInfoBox('CADET NAME', cadet.name),
+                        _buildInfoBox('RANK', cadet.rank ?? 'CADET'),
+                        _buildInfoBox('PHASE', cadet.phase ?? 'N/A'),
+                      ],
+                    ),
+                    const SizedBox(height: 40),
+                    const Text('ISSUED ITEMS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.black, decoration: TextDecoration.underline)),
+                    const SizedBox(height: 20),
+                    Table(
+                      border: TableBorder.all(color: Colors.black12),
+                      children: [
+                        const TableRow(
+                          children: [
+                            Padding(padding: EdgeInsets.all(8.0), child: Text('ITEM', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black))),
+                            Padding(padding: EdgeInsets.all(8.0), child: Text('SERIAL #', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black))),
+                            Padding(padding: EdgeInsets.all(8.0), child: Text('DATE ISSUED', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black))),
+                          ],
+                        ),
+                        ...cadet.issuedKit.map((item) => TableRow(
+                          children: [
+                            Padding(padding: EdgeInsets.all(8.0), child: Text(item['item'] ?? '', style: const TextStyle(color: Colors.black87))),
+                            Padding(padding: EdgeInsets.all(8.0), child: Text(item['serial'] ?? '', style: const TextStyle(color: Colors.black87))),
+                            Padding(padding: EdgeInsets.all(8.0), child: Text(item['date'] ?? '', style: const TextStyle(color: Colors.black87))),
+                          ],
+                        )).toList(),
+                      ],
+                    ),
+                    const SizedBox(height: 60),
+                    const Text('DECLARATION', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black)),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'I acknowledge receipt of the items listed above and understand that I am responsible for their safe keeping. I agree to return all items upon request or upon leaving the unit.',
+                      style: TextStyle(fontSize: 12, color: Colors.black87, fontStyle: FontStyle.italic),
+                    ),
+                    const SizedBox(height: 60),
+                    Row(
+                      children: [
+                        Expanded(child: Column(children: [Container(height: 1, color: Colors.black), const Text('CADET SIGNATURE', style: TextStyle(fontSize: 10, color: Colors.black54))])),
+                        const SizedBox(width: 40),
+                        Expanded(child: Column(children: [Container(height: 1, color: Colors.black), const Text('DATE', style: TextStyle(fontSize: 10, color: Colors.black54))])),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoBox(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.black54, fontWeight: FontWeight.bold)),
+        Text(value.toUpperCase(), style: const TextStyle(fontSize: 16, color: Colors.black, fontWeight: FontWeight.w900)),
+      ],
     );
   }
 }
