@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'providers/auth_provider.dart';
+import 'models/user_data.dart';
 import 'widgets/stat_card.dart';
 import 'screens/personnel_screen.dart';
 import 'screens/calendar_screen.dart';
