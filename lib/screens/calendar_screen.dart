@@ -24,46 +24,122 @@ class CalendarScreen extends StatelessWidget {
       return date.isAfter(DateTime.now().subtract(const Duration(days: 1)));
     }).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'TRAINING CALENDAR',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2.0,
-                  color: theme.colorScheme.primary,
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'TRAINING CALENDAR',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2.0,
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Upcoming Schedule',
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0),
-              ),
-            ],
+                const SizedBox(height: 8),
+                const Text(
+                  'Upcoming Schedule',
+                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0),
+                ),
+              ],
+            ),
           ),
-        ),
-        Expanded(
-          child: upcomingDates.isEmpty 
-            ? _buildEmptyState(theme)
-            : ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                itemCount: upcomingDates.length,
-                itemBuilder: (context, index) {
-                  final dateStr = upcomingDates[index];
-                  final dayData = ParadeDay.fromMap(dateStr, calendarMap[dateStr]);
-                  return _buildCalendarCard(context, theme, dayData);
+          Expanded(
+            child: upcomingDates.isEmpty 
+              ? _buildEmptyState(theme)
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  itemCount: upcomingDates.length,
+                  itemBuilder: (context, index) {
+                    final dateStr = upcomingDates[index];
+                    final dayData = ParadeDay.fromMap(dateStr, calendarMap[dateStr]);
+                    return _buildCalendarCard(context, theme, dayData);
+                  },
+                ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddEventDialog(context, authProvider),
+        backgroundColor: theme.colorScheme.primary,
+        child: const Icon(LucideIcons.plus, color: Colors.white),
+      ),
+    );
+  }
+
+  Future<void> _showAddEventDialog(BuildContext context, AuthProvider auth) async {
+    DateTime selectedDate = DateTime.now();
+    final theme = Theme.of(context);
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add Training Night', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: Text(DateFormat('EEEE, MMM d, yyyy').format(selectedDate)),
+                trailing: const Icon(LucideIcons.calendar),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: selectedDate,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime(2030),
+                  );
+                  if (picked != null) setDialogState(() => selectedDate = picked);
                 },
               ),
+              const SizedBox(height: 16),
+              const Text('This will initialize a new LHQ night for all phases.', style: TextStyle(fontSize: 12, opacity: 0.6)),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+            ElevatedButton(
+              onPressed: () async {
+                await _createNewEvent(selectedDate, auth);
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: const Text('INITIALIZE NIGHT'),
+            ),
+          ],
         ),
-      ],
+      ),
     );
+  }
+
+  Future<void> _createNewEvent(DateTime date, AuthProvider auth) async {
+    final dateKey = DateFormat('yyyy-MM-dd').format(date);
+    final corpsId = auth.userData?.corpsId;
+    if (corpsId == null) return;
+
+    final Map<String, dynamic> trainingYear = auth.corpsData?.trainingYears['current'] ?? {};
+    final Map<String, dynamic> calendar = Map<String, dynamic>.from(trainingYear['calendar'] ?? {});
+    
+    // Initialize a blank LHQ night structure
+    calendar[dateKey] = {
+      'type': 'lhq',
+      'title': 'Training Night',
+      'periods': {
+        '1': {},
+        '2': {},
+        '3': {},
+      },
+    };
+
+    await FirebaseFirestore.instance.collection('corps').doc(corpsId).update({
+      'trainingYears.current.calendar': calendar,
+    });
   }
 
   Widget _buildEmptyState(ThemeData theme) {
