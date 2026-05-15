@@ -2,12 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'providers/auth_provider.dart';
 import 'widgets/stat_card.dart';
 import 'screens/personnel_screen.dart';
+import 'screens/attendance_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -256,12 +257,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 label: Text('Personnel', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
               ),
               NavigationRailDestination(
-                icon: Icon(LucideIcons.folderKanban),
-                label: Text('Planning', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                icon: Icon(LucideIcons.clipboardCheck),
+                label: Text('Attendance', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
               ),
               NavigationRailDestination(
-                icon: Icon(LucideIcons.clipboardCheck),
-                label: Text('Logistics', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                icon: Icon(LucideIcons.calendar),
+                label: Text('Calendar', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              ),
+              NavigationRailDestination(
+                icon: Icon(LucideIcons.settings),
+                label: Text('Settings', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -284,6 +289,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const DashboardHome();
       case 1:
         return const PersonnelScreen();
+      case 2:
+        return const AttendanceScreen();
       default:
         return Center(child: Text('Module ${(_selectedIndex + 1)} Coming Soon'));
     }
@@ -367,7 +374,7 @@ class DashboardHome extends StatelessWidget {
               StatCard(title: 'Personnel', value: '${activeCadets + staff.length}', icon: LucideIcons.users, iconColor: Colors.blueAccent),
               StatCard(title: 'Training', value: '85%', icon: LucideIcons.checkCircle, iconColor: Colors.greenAccent),
               StatCard(title: 'Attendance', value: '${attendancePercent.toInt()}%', icon: LucideIcons.percent, iconColor: Colors.amberAccent),
-              StatCard(title: 'Economy', value: '$0', icon: LucideIcons.dollarSign, iconColor: Colors.tealAccent),
+              StatCard(title: 'Economy', value: '\$0', icon: LucideIcons.dollarSign, iconColor: Colors.tealAccent),
             ],
           ),
           const SizedBox(height: 40),

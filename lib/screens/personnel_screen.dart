@@ -69,7 +69,7 @@ class _PersonnelScreenState extends State<PersonnelScreen> {
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             itemCount: filteredCadets.length,
-            separatorBuilder: (context, index) => const Divider(height: 1, color: Colors.white05),
+            separatorBuilder: (context, index) => Divider(height: 1, color: Colors.white.withOpacity(0.05)),
             itemBuilder: (context, index) {
               final cadet = filteredCadets[index];
               return ListTile(
@@ -87,9 +87,9 @@ class _PersonnelScreenState extends State<PersonnelScreen> {
                 ),
                 subtitle: Text(
                   "${cadet['rank'] ?? 'Cadet'} • Phase ${cadet['phase'] ?? 'N/A'}",
-                  style: const TextStyle(fontSize: 12, opacity: 0.6),
+                  style: TextStyle(fontSize: 12, color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6)),
                 ),
-                trailing: const Icon(LucideIcons.chevronRight, size: 16, opacity: 0.3),
+                trailing: Icon(LucideIcons.chevronRight, size: 16, color: theme.iconTheme.color?.withOpacity(0.3)),
                 onTap: () {
                   // Implement detailed view
                 },
