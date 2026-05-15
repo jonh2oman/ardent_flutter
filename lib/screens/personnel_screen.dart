@@ -140,39 +140,59 @@ class _PersonnelScreenState extends State<PersonnelScreen> {
   }
 
   Widget _buildStaffList(BuildContext context, AuthProvider auth, ThemeData theme) {
-    final List<dynamic> staff = auth.corpsData?.settings?['staff'] ?? [];
-    final filteredStaff = staff.where((s) {
-      final name = "${s['firstName']} ${s['lastName']}".toLowerCase();
-      final rank = (s['rank'] ?? '').toString().toLowerCase();
-      return name.contains(_searchQuery.toLowerCase()) || rank.contains(_searchQuery.toLowerCase());
-    }).toList();
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .where('corpsId', isEqualTo: auth.corpsData?.id)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(32),
-      itemCount: filteredStaff.length,
-      separatorBuilder: (context, index) => Divider(height: 1, color: Colors.white.withOpacity(0.05)),
-      itemBuilder: (context, index) {
-        final person = filteredStaff[index];
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(vertical: 8),
-          leading: CircleAvatar(
-            backgroundColor: Colors.blueAccent.withOpacity(0.1),
-            child: const Icon(LucideIcons.shield, size: 16, color: Colors.blueAccent),
-          ),
-          title: Text(
-            "${person['firstName']} ${person['lastName']}",
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          subtitle: Text(
-            "${person['rank'] ?? 'Staff'} • ${person['position'] ?? 'Unit Staff'}",
-            style: TextStyle(fontSize: 12, color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6)),
-          ),
-          trailing: Icon(LucideIcons.chevronRight, size: 16, color: theme.iconTheme.color?.withOpacity(0.3)),
-          onTap: () {
-            final userData = UserData.fromMap(person as Map<String, dynamic>, person['uid'] ?? '');
-            Navigator.push(
-              context, 
-              MaterialPageRoute(builder: (_) => StaffDetailScreen(staff: userData))
+        final staffDocs = snapshot.data?.docs ?? [];
+        final filteredStaff = staffDocs.where((doc) {
+          final s = doc.data() as Map<String, dynamic>;
+          final name = "${s['firstName']} ${s['lastName']}".toLowerCase();
+          final rank = (s['rank'] ?? '').toString().toLowerCase();
+          final pos = (s['position'] ?? '').toString().toLowerCase();
+          return name.contains(_searchQuery.toLowerCase()) || 
+                 rank.contains(_searchQuery.toLowerCase()) ||
+                 pos.contains(_searchQuery.toLowerCase());
+        }).toList();
+
+        if (filteredStaff.isEmpty) {
+          return const Center(child: Text('No staff found matching search.'));
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.all(32),
+          itemCount: filteredStaff.length,
+          separatorBuilder: (context, index) => Divider(height: 1, color: Colors.white.withOpacity(0.05)),
+          itemBuilder: (context, index) {
+            final doc = filteredStaff[index];
+            final person = doc.data() as Map<String, dynamic>;
+            final uid = doc.id;
+
+            return ListTile(
+              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              leading: CircleAvatar(
+                backgroundColor: Colors.blueAccent.withOpacity(0.1),
+                child: const Icon(LucideIcons.shield, size: 16, color: Colors.blueAccent),
+              ),
+              title: Text(
+                "${person['firstName']} ${person['lastName']}",
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                "${person['rank'] ?? 'Staff'} • ${person['position'] ?? 'Unit Staff'}",
+                style: TextStyle(fontSize: 12, color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6)),
+              ),
+              trailing: Icon(LucideIcons.chevronRight, size: 16, color: theme.iconTheme.color?.withOpacity(0.3)),
+              onTap: () {
+                final userData = UserData.fromMap(person, uid);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => StaffDetailScreen(staff: userData)));
+              },
             );
           },
         );

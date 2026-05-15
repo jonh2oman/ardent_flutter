@@ -68,6 +68,28 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
     }
   }
 
+  Future<void> _updatePosition(String? newPosition) async {
+    setState(() => _isUpdating = true);
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(widget.staff.id).update({
+        'position': newPosition,
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Position updated to $newPosition')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating position: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    } finally {
+      setState(() => _isUpdating = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -138,7 +160,7 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
                         title: 'APPOINTMENT & ROLE',
                         icon: LucideIcons.briefcase,
                         children: [
-                          _buildDetailRow('Primary Role', 'Unit Staff'),
+                          _buildPositionSelector(theme),
                           _buildDetailRow('Security Level', widget.staff.isSupportAdmin ? 'Admin' : 'Standard'),
                           _buildDetailRow('Commission Date', 'N/A'),
                         ],
@@ -241,6 +263,50 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
               const Icon(LucideIcons.shieldCheck, size: 14, color: Colors.blueAccent),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPositionSelector(ThemeData theme) {
+    final positions = [
+      'Commanding Officer',
+      'Executive Officer',
+      'Training Officer',
+      'Supply Officer',
+      'Administration Officer',
+      'Finance Officer',
+      'Assistant Training Officer',
+      'Divisional Officer',
+      'Instructor',
+      'Unit Staff',
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text('Unit Appointment', style: TextStyle(color: Colors.white54, fontSize: 13)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: positions.contains(widget.staff.position) ? widget.staff.position : 'Unit Staff',
+                dropdownColor: theme.colorScheme.surface,
+                isExpanded: true,
+                alignment: Alignment.centerRight,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                items: positions.map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value, textAlign: TextAlign.right),
+                  );
+                }).toList(),
+                onChanged: _isUpdating ? null : (val) => _updatePosition(val),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

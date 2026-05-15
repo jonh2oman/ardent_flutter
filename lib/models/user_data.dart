@@ -4,6 +4,7 @@ class UserData {
   final String? firstName;
   final String? lastName;
   final String? rank;
+  final String? position; // e.g. 'Commanding Officer', 'Training Officer'
   final String corpsId;
   // Permissions & Security
   final bool isAdmin;
@@ -41,6 +42,7 @@ class UserData {
     this.firstName,
     this.lastName,
     this.rank,
+    this.position,
     required this.corpsId,
     this.isAdmin = false,
     this.permissions = const {},
@@ -73,6 +75,7 @@ class UserData {
       firstName: data['firstName'],
       lastName: data['lastName'],
       rank: data['rank'],
+      position: data['position'],
       corpsId: data['corpsId'] ?? 'PENDING',
       isAdmin: data['isAdmin'] ?? false,
       permissions: Map<String, dynamic>.from(data['permissions'] ?? {}),
@@ -103,6 +106,7 @@ class UserData {
       'firstName': firstName,
       'lastName': lastName,
       'rank': rank,
+      'position': position,
       'corpsId': corpsId,
       'isAdmin': isAdmin,
       'permissions': permissions,
