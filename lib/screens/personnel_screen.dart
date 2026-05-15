@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
 import '../models/user_data.dart';
 import 'cadet_detail_screen.dart';
+import 'staff_detail_screen.dart';
 
 class PersonnelScreen extends StatefulWidget {
   const PersonnelScreen({super.key});
@@ -30,90 +31,144 @@ class _PersonnelScreenState extends State<PersonnelScreen> {
       return name.contains(_searchQuery.toLowerCase()) || rank.contains(_searchQuery.toLowerCase());
     }).toList();
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddCadetDialog(context, authProvider),
-        child: const Icon(LucideIcons.plus),
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(32.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'PERSONNEL MANAGEMENT',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 2.0,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Unit Roster',
-                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0),
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                  decoration: InputDecoration(
-                    hintText: 'Search by name or rank...',
-                    prefixIcon: const Icon(LucideIcons.search, size: 18),
-                    filled: true,
-                    fillColor: theme.colorScheme.surface.withOpacity(0.5),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        floatingActionButton: FloatingActionButton(
+          onPressed: () => _showAddCadetDialog(context, authProvider),
+          child: const Icon(LucideIcons.plus),
+        ),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(32, 32, 32, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'PERSONNEL MANAGEMENT',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2.0,
+                      color: theme.colorScheme.primary,
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              itemCount: filteredCadets.length,
-              separatorBuilder: (context, index) => Divider(height: 1, color: Colors.white.withOpacity(0.05)),
-              itemBuilder: (context, index) {
-                final cadet = filteredCadets[index];
-                return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                  leading: CircleAvatar(
-                    backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                    child: Text(
-                      cadet['rank']?.substring(0, 1) ?? 'C',
-                      style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold),
+                  const SizedBox(height: 16),
+                  const TabBar(
+                    isScrollable: true,
+                    tabs: [
+                      Tab(text: 'CADETS'),
+                      Tab(text: 'STAFF'),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  TextField(
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                    decoration: InputDecoration(
+                      hintText: 'Search by name or rank...',
+                      prefixIcon: const Icon(LucideIcons.search, size: 18),
+                      filled: true,
+                      fillColor: theme.colorScheme.surface.withOpacity(0.5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
-                  title: Text(
-                    "${cadet['firstName']} ${cadet['lastName']}",
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    "${cadet['rank'] ?? 'Cadet'} • Phase ${cadet['phase'] ?? 'N/A'}",
-                    style: TextStyle(fontSize: 12, color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6)),
-                  ),
-                  trailing: Icon(LucideIcons.chevronRight, size: 16, color: theme.iconTheme.color?.withOpacity(0.3)),
-                  onTap: () {
-                    final userData = UserData.fromMap(cadet as Map<String, dynamic>, cadet['uid'] ?? '');
-                    Navigator.push(
-                      context, 
-                      MaterialPageRoute(builder: (_) => CadetDetailScreen(cadet: userData))
-                    );
-                  },
-                );
-              },
+                ],
+              ),
             ),
-          ),
-        ],
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _buildCadetList(context, theme, filteredCadets),
+                  _buildStaffList(context, authProvider, theme),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildCadetList(BuildContext context, ThemeData theme, List<dynamic> cadets) {
+    return ListView.separated(
+      padding: const EdgeInsets.all(32),
+      itemCount: cadets.length,
+      separatorBuilder: (context, index) => Divider(height: 1, color: Colors.white.withOpacity(0.05)),
+      itemBuilder: (context, index) {
+        final cadet = cadets[index];
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+          leading: CircleAvatar(
+            backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+            child: Text(
+              cadet['rank']?.substring(0, 1) ?? 'C',
+              style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold),
+            ),
+          ),
+          title: Text(
+            "${cadet['firstName']} ${cadet['lastName']}",
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          subtitle: Text(
+            "${cadet['rank'] ?? 'Cadet'} • Phase ${cadet['phase'] ?? 'N/A'}",
+            style: TextStyle(fontSize: 12, color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6)),
+          ),
+          trailing: Icon(LucideIcons.chevronRight, size: 16, color: theme.iconTheme.color?.withOpacity(0.3)),
+          onTap: () {
+            final userData = UserData.fromMap(cadet as Map<String, dynamic>, cadet['uid'] ?? '');
+            Navigator.push(context, MaterialPageRoute(builder: (_) => CadetDetailScreen(cadet: userData)));
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildStaffList(BuildContext context, AuthProvider auth, ThemeData theme) {
+    final List<dynamic> staff = auth.corpsData?.settings['staff'] ?? [];
+    final filteredStaff = staff.where((s) {
+      final name = "${s['firstName']} ${s['lastName']}".toLowerCase();
+      final rank = (s['rank'] ?? '').toString().toLowerCase();
+      return name.contains(_searchQuery.toLowerCase()) || rank.contains(_searchQuery.toLowerCase());
+    }).toList();
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(32),
+      itemCount: filteredStaff.length,
+      separatorBuilder: (context, index) => Divider(height: 1, color: Colors.white.withOpacity(0.05)),
+      itemBuilder: (context, index) {
+        final person = filteredStaff[index];
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+          leading: CircleAvatar(
+            backgroundColor: Colors.blueAccent.withOpacity(0.1),
+            child: const Icon(LucideIcons.shield, size: 16, color: Colors.blueAccent),
+          ),
+          title: Text(
+            "${person['firstName']} ${person['lastName']}",
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          subtitle: Text(
+            "${person['rank'] ?? 'Staff'} • ${person['position'] ?? 'Unit Staff'}",
+            style: TextStyle(fontSize: 12, color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6)),
+          ),
+          trailing: Icon(LucideIcons.chevronRight, size: 16, color: theme.iconTheme.color?.withOpacity(0.3)),
+          onTap: () {
+            final userData = UserData.fromMap(person as Map<String, dynamic>, person['uid'] ?? '');
+            Navigator.push(
+              context, 
+              MaterialPageRoute(builder: (_) => StaffDetailScreen(staff: userData))
+            );
+          },
+        );
+      },
+    );
+  }
   }
 
   void _showAddCadetDialog(BuildContext context, AuthProvider auth) {
