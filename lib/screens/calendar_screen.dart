@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/auth_provider.dart';
 import '../models/calendar.dart';
+import '../data/curriculum.dart';
 
 class CalendarScreen extends StatelessWidget {
   const CalendarScreen({super.key});
@@ -316,7 +317,23 @@ class CalendarScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 TextField(
                   controller: lessonController,
-                  decoration: const InputDecoration(labelText: 'Lesson ID (e.g. M103.01)', border: OutlineInputBorder()),
+                  onChanged: (val) {
+                    final eo = Curriculum.findEO(selectedPhase, val);
+                    if (eo != null) {
+                      setDialogState(() {
+                        // We could auto-fill or just show a preview
+                      });
+                    }
+                  },
+                  decoration: InputDecoration(
+                    labelText: 'Lesson ID (e.g. M103.01)', 
+                    border: const OutlineInputBorder(),
+                    helperText: Curriculum.findEO(selectedPhase, lessonController.text)?['title'] ?? 'Enter valid EO ID',
+                    helperStyle: TextStyle(
+                      color: Curriculum.findEO(selectedPhase, lessonController.text)?['type'] == 'M' ? Colors.tealAccent : Colors.amberAccent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
