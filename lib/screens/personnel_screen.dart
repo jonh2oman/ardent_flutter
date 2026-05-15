@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/auth_provider.dart';
+import '../models/user_data.dart';
+import 'cadet_detail_screen.dart';
 
 class PersonnelScreen extends StatefulWidget {
   const PersonnelScreen({super.key});
@@ -91,7 +93,20 @@ class _PersonnelScreenState extends State<PersonnelScreen> {
                 ),
                 trailing: Icon(LucideIcons.chevronRight, size: 16, color: theme.iconTheme.color?.withOpacity(0.3)),
                 onTap: () {
-                  // Implement detailed view
+                  final userData = UserData(
+                    uid: cadet['uid'] ?? '',
+                    email: cadet['email'] ?? '',
+                    name: "${cadet['firstName']} ${cadet['lastName']}",
+                    role: 'cadet',
+                    corpsId: authProvider.userData?.corpsId ?? '',
+                    rank: cadet['rank'] ?? 'Cadet',
+                    element: authProvider.corpsData?.element ?? 'Sea',
+                    dateOfBirth: cadet['dob'] != null ? DateTime.parse(cadet['dob']) : DateTime.now(),
+                  );
+                  Navigator.push(
+                    context, 
+                    MaterialPageRoute(builder: (_) => CadetDetailScreen(cadet: userData))
+                  );
                 },
               );
             },
