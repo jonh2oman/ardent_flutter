@@ -23,7 +23,7 @@ class _PersonnelScreenState extends State<PersonnelScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
     final theme = Theme.of(context);
     
-    final List<dynamic> cadets = authProvider.corpsData?.settings['cadets'] ?? [];
+    final List<dynamic> cadets = authProvider.corpsData?.settings?['cadets'] ?? [];
     
     final filteredCadets = cadets.where((c) {
       final name = "${c['firstName']} ${c['lastName']}".toLowerCase();
@@ -130,7 +130,7 @@ class _PersonnelScreenState extends State<PersonnelScreen> {
   }
 
   Widget _buildStaffList(BuildContext context, AuthProvider auth, ThemeData theme) {
-    final List<dynamic> staff = auth.corpsData?.settings['staff'] ?? [];
+    final List<dynamic> staff = auth.corpsData?.settings?['staff'] ?? [];
     final filteredStaff = staff.where((s) {
       final name = "${s['firstName']} ${s['lastName']}".toLowerCase();
       final rank = (s['rank'] ?? '').toString().toLowerCase();

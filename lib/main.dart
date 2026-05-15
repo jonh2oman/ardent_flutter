@@ -338,12 +338,13 @@ class DashboardHome extends StatelessWidget {
     final authProvider = Provider.of<AuthProvider>(context);
     final theme = Theme.of(context);
     
-    final List<dynamic> cadets = authProvider.corpsData?.settings['cadets'] ?? [];
-    final List<dynamic> staff = authProvider.corpsData?.settings['staff'] ?? [];
+    final List<dynamic> cadets = authProvider.corpsData?.settings?['cadets'] ?? [];
+    final List<dynamic> staff = authProvider.corpsData?.settings?['staff'] ?? [];
     final int activeCadets = cadets.where((c) => c['isArchived'] != true).length;
     
-    // Calculate attendance snapshot (placeholder logic matching web)
-    final attendance = authProvider.corpsData?.trainingYears['current']?['attendance'] ?? {};
+    // Calculate attendance snapshot
+    final currentYear = authProvider.corpsData?.trainingYears?['current'] as Map<String, dynamic>?;
+    final attendance = currentYear?['attendance'] ?? {};
     double attendancePercent = 100.0;
     if (attendance.isNotEmpty) {
       // Basic calculation for the summary
