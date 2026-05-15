@@ -306,7 +306,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 4:
         return const SupplyScreen();
       case 5:
-        return const CalendarScreen();
+        return CalendarScreen();
       default:
         return Center(child: Text('Module ${(_selectedIndex + 1)} Coming Soon'));
     }
