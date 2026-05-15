@@ -7,6 +7,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'providers/auth_provider.dart';
 import 'widgets/stat_card.dart';
 import 'screens/personnel_screen.dart';
+import 'screens/calendar_screen.dart';
 import 'screens/exchange_screen.dart';
 import 'screens/supply_screen.dart';
 import 'screens/routine_orders_screen.dart';
