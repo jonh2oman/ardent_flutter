@@ -84,7 +84,7 @@ class _PersonnelScreenState extends State<PersonnelScreen> {
             Expanded(
               child: TabBarView(
                 children: [
-                  _buildCadetList(context, theme, filteredCadets),
+                  _buildCadetList(context, authProvider, theme, filteredCadets),
                   _buildStaffList(context, authProvider, theme),
                 ],
               ),
@@ -95,7 +95,7 @@ class _PersonnelScreenState extends State<PersonnelScreen> {
     );
   }
 
-  Widget _buildCadetList(BuildContext context, ThemeData theme, List<dynamic> cadets) {
+  Widget _buildCadetList(BuildContext context, AuthProvider auth, ThemeData theme, List<dynamic> cadets) {
     return ListView.separated(
       padding: const EdgeInsets.all(32),
       itemCount: cadets.length,
@@ -124,7 +124,7 @@ class _PersonnelScreenState extends State<PersonnelScreen> {
             children: [
               IconButton(
                 icon: const Icon(LucideIcons.userMinus, size: 16, color: Colors.redAccent),
-                onPressed: () => _removeCadet(context, authProvider, cadet),
+                onPressed: () => _removeCadet(context, auth, cadet),
                 tooltip: 'Strike Off Strength',
               ),
               Icon(LucideIcons.chevronRight, size: 16, color: theme.iconTheme.color?.withOpacity(0.3)),
