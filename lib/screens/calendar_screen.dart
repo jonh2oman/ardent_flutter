@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/auth_provider.dart';
 import '../models/calendar.dart';
 
@@ -100,7 +101,7 @@ class CalendarScreen extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 16),
-              const Text('This will initialize a new LHQ night for all phases.', style: TextStyle(fontSize: 12, opacity: 0.6)),
+              Text('This will initialize a new LHQ night for all phases.', style: TextStyle(fontSize: 12, color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6))),
             ],
           ),
           actions: [
