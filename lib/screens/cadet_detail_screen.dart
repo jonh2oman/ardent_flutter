@@ -35,13 +35,15 @@ class CadetDetailScreen extends StatelessWidget {
                   child: Text(cadet.name.isNotEmpty ? cadet.name[0] : 'C', style: TextStyle(fontSize: 32, color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(width: 20),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(cadet.rank ?? 'Cadet', style: TextStyle(fontSize: 18, color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
-                    Text(cadet.name, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -1.0)),
-                    Text('PHASE ${cadet.phase ?? 'N/A'}', style: const TextStyle(fontSize: 12, color: Colors.white30, fontWeight: FontWeight.bold)),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(cadet.rank ?? 'Cadet', style: TextStyle(fontSize: 18, color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
+                      Text(cadet.name, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -1.0)),
+                      Text('PHASE ${cadet.phase ?? 'N/A'} • CIN: ${cadet.cin ?? '---'}', style: const TextStyle(fontSize: 12, color: Colors.white30, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -57,12 +59,44 @@ class CadetDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 32),
 
-            // Details Sections
+            // Personal Information
             _buildSection(theme, 'Personal Information', [
               _buildDetailRow('Rank', cadet.rank ?? 'Cadet'),
-              _buildDetailRow('Element', cadet.element ?? 'Sea'),
               _buildDetailRow('Date of Birth', cadet.dob != null ? DateFormat('MMM d, yyyy').format(cadet.dob!) : 'Unknown'),
-              _buildDetailRow('Email', cadet.email),
+              _buildDetailRow('Personal Phone', cadet.phone ?? 'N/A'),
+              _buildDetailRow('Personal Email', cadet.personalEmail ?? 'N/A'),
+              _buildDetailRow('Cadet Email', cadet.cadetEmail ?? 'N/A'),
+            ]),
+            
+            const SizedBox(height: 32),
+
+            // Address
+            _buildSection(theme, 'Address', [
+              _buildDetailRow('Street', cadet.address?['street'] ?? 'N/A'),
+              _buildDetailRow('City', cadet.address?['city'] ?? 'N/A'),
+              _buildDetailRow('Province', cadet.address?['province'] ?? 'N/A'),
+              _buildDetailRow('Postal Code', cadet.address?['postalCode'] ?? 'N/A'),
+            ]),
+
+            const SizedBox(height: 32),
+
+            // Guardians
+            if (cadet.parents != null && cadet.parents!.isNotEmpty)
+              _buildSection(theme, 'Guardians', cadet.parents!.map((p) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(p['name'] ?? 'Unknown Parent', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text('${p['relationship'] ?? 'Guardian'} • ${p['phone'] ?? 'No Phone'}', style: const TextStyle(fontSize: 12, color: Colors.white30)),
+                  const SizedBox(height: 12),
+                ],
+              )).toList()),
+
+            const SizedBox(height: 32),
+
+            // Medical
+            _buildSection(theme, 'Medical Information', [
+              _buildDetailRow('Health #', cadet.provincialHealthNumber ?? 'N/A'),
+              _buildDetailRow('Insurance', cadet.privateInsuranceProvider ?? 'N/A'),
             ]),
             
             const SizedBox(height: 32),
@@ -109,7 +143,7 @@ class CadetDetailScreen extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(color: Colors.white30, fontSize: 14)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          Expanded(child: Text(value, textAlign: TextAlign.end, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
         ],
       ),
     );

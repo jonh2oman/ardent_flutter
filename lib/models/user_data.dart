@@ -11,6 +11,17 @@ class UserData {
   final DateTime? dob;
   final String? element;
   final String? phase;
+  
+  // New Fields from Web App
+  final String? cin;
+  final String? phone;
+  final String? personalEmail;
+  final String? cadetEmail;
+  final Map<String, dynamic>? address;
+  final List<dynamic>? parents;
+  final String? provincialHealthNumber;
+  final String? privateInsuranceProvider;
+  final Map<String, dynamic>? onboardingChecklist;
 
   UserData({
     required this.id,
@@ -25,6 +36,15 @@ class UserData {
     this.dob,
     this.element,
     this.phase,
+    this.cin,
+    this.phone,
+    this.personalEmail,
+    this.cadetEmail,
+    this.address,
+    this.parents,
+    this.provincialHealthNumber,
+    this.privateInsuranceProvider,
+    this.onboardingChecklist,
   });
 
   String get name => displayName ?? "${firstName ?? ''} ${lastName ?? ''}".trim();
@@ -42,7 +62,16 @@ class UserData {
       isPendingAssignment: data['isPendingAssignment'] ?? false,
       dob: data['dob'] != null ? DateTime.tryParse(data['dob'].toString()) : null,
       element: data['element'],
-      phase: data['phase'],
+      phase: data['phase']?.toString(),
+      cin: data['cin'],
+      phone: data['phone'],
+      personalEmail: data['personalEmail'],
+      cadetEmail: data['cadetEmail'],
+      address: data['address'],
+      parents: data['parents'],
+      provincialHealthNumber: data['provincialHealthNumber'],
+      privateInsuranceProvider: data['privateInsuranceProvider'],
+      onboardingChecklist: data['onboardingChecklist'],
     );
   }
 
@@ -59,6 +88,15 @@ class UserData {
       'dob': dob?.toIso8601String(),
       'element': element,
       'phase': phase,
+      'cin': cin,
+      'phone': phone,
+      'personalEmail': personalEmail,
+      'cadetEmail': cadetEmail,
+      'address': address,
+      'parents': parents,
+      'provincialHealthNumber': provincialHealthNumber,
+      'privateInsuranceProvider': privateInsuranceProvider,
+      'onboardingChecklist': onboardingChecklist,
     };
   }
 }
