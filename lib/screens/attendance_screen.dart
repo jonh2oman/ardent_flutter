@@ -148,7 +148,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("${cadet['rank']} ${cadet['lastName']}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(cadet['firstName'] ?? '', style: const TextStyle(fontSize: 12, opacity: 0.6)),
+                Text(cadet['firstName'] ?? '', style: TextStyle(fontSize: 12, color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6))),
               ],
             ),
           ),
@@ -193,7 +193,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   Future<void> _updateAttendance(String cadetId, String status, AuthProvider auth) async {
     final dateKey = DateFormat('yyyy-MM-dd').format(_selectedDate);
-    final corpsId = auth.user?.corpsId;
+    final corpsId = auth.userData?.corpsId;
     if (corpsId == null) return;
 
     // Get current attendance
