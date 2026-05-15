@@ -159,6 +159,7 @@ class CalendarScreen extends StatelessWidget {
   Widget _buildCalendarCard(BuildContext context, ThemeData theme, ParadeDay day) {
     final date = DateTime.parse(day.date);
     final isLHQ = day.type == 'lhq';
+    final auth = Provider.of<AuthProvider>(context, listen: false);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
@@ -195,10 +196,15 @@ class CalendarScreen extends StatelessWidget {
                   DateFormat('EEEE, MMM d').format(date),
                   style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
                 ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(LucideIcons.trash2, size: 18, color: Colors.white30),
+                  onPressed: () => _deleteEvent(day.date, auth),
+                ),
               ],
             ),
           ),
-          Divider(height: 1, color: Colors.white.withOpacity(0.05)),
+          const Divider(height: 1, color: Colors.white10),
           // Content
           Padding(
             padding: const EdgeInsets.all(20),
@@ -209,11 +215,11 @@ class CalendarScreen extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 16.0),
                     child: Text(day.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white70)),
                   ),
-                _buildPeriodRow(theme, 'Period 1', day.periods['1']),
+                _buildPeriodRow(context, theme, 'Period 1', day.periods['1'], day.date, '1', auth),
                 const SizedBox(height: 12),
-                _buildPeriodRow(theme, 'Period 2', day.periods['2']),
+                _buildPeriodRow(context, theme, 'Period 2', day.periods['2'], day.date, '2', auth),
                 const SizedBox(height: 12),
-                _buildPeriodRow(theme, 'Period 3', day.periods['3']),
+                _buildPeriodRow(context, theme, 'Period 3', day.periods['3'], day.date, '3', auth),
               ],
             ),
           ),
@@ -222,39 +228,162 @@ class CalendarScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPeriodRow(ThemeData theme, String title, dynamic periodData) {
-    if (periodData == null) return const SizedBox.shrink();
-    
-    // In your web app, period data is a map of levels (Phase 1, 2, etc.)
-    final Map<String, dynamic> levels = Map<String, dynamic>.from(periodData);
-    
+  Widget _buildPeriodRow(BuildContext context, ThemeData theme, String title, dynamic periodData, String dateKey, String periodKey, AuthProvider auth) {
+    final Map<String, dynamic> levels = periodData != null ? Map<String, dynamic>.from(periodData) : {};
+    final List<String> availablePhases = ['Phase 1', 'Phase 2', 'Phase 3', 'Phase 4', 'Phase 5'];
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
           width: 80,
-          child: Text(title, style: const TextStyle(fontSize: 12, color: Colors.white30, fontWeight: FontWeight.bold)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 12, color: Colors.white30, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              InkWell(
+                onTap: () => _showEditPeriodDialog(context, auth, dateKey, periodKey, levels),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: theme.colorScheme.primary.withOpacity(0.3)),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text('EDIT', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
         ),
         Expanded(
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: levels.entries.map((e) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  "${e.key}: ${e.value['lessonId'] ?? 'N/A'}",
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                ),
-              );
-            }).toList(),
-          ),
+          child: levels.isEmpty 
+            ? const Text('No lessons assigned', style: TextStyle(fontSize: 10, color: Colors.white10))
+            : Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: levels.entries.map((e) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      "${e.key}: ${e.value['lessonId'] ?? 'N/A'}",
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  );
+                }).toList(),
+              ),
         ),
       ],
     );
+  }
+
+  Future<void> _showEditPeriodDialog(BuildContext context, AuthProvider auth, String dateKey, String periodKey, Map<String, dynamic> currentLevels) async {
+    final theme = Theme.of(context);
+    String selectedPhase = 'Phase 1';
+    final lessonController = TextEditingController();
+    final instructorController = TextEditingController();
+    final locationController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Edit Period $periodKey Assignments', style: const TextStyle(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: selectedPhase,
+                  items: ['Phase 1', 'Phase 2', 'Phase 3', 'Phase 4', 'Phase 5'].map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setDialogState(() {
+                        selectedPhase = val;
+                        final current = currentLevels[val] ?? {};
+                        lessonController.text = current['lessonId'] ?? '';
+                        instructorController.text = current['instructor'] ?? '';
+                        locationController.text = current['location'] ?? '';
+                      });
+                    }
+                  },
+                  decoration: const InputDecoration(labelText: 'Phase/Level'),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: lessonController,
+                  decoration: const InputDecoration(labelText: 'Lesson ID (e.g. M103.01)', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: instructorController,
+                  decoration: const InputDecoration(labelText: 'Instructor', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: locationController,
+                  decoration: const InputDecoration(labelText: 'Location', border: OutlineInputBorder()),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+            ElevatedButton(
+              onPressed: () async {
+                await _updatePeriodAssignment(auth, dateKey, periodKey, selectedPhase, {
+                  'lessonId': lessonController.text,
+                  'instructor': instructorController.text,
+                  'location': locationController.text,
+                });
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: const Text('SAVE ASSIGNMENT'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updatePeriodAssignment(AuthProvider auth, String dateKey, String periodKey, String phase, Map<String, dynamic> data) async {
+    final corpsId = auth.userData?.corpsId;
+    if (corpsId == null) return;
+
+    final Map<String, dynamic> trainingYear = auth.corpsData?.trainingYears['current'] ?? {};
+    final Map<String, dynamic> calendar = Map<String, dynamic>.from(trainingYear['calendar'] ?? {});
+    
+    if (calendar[dateKey] == null) return;
+    
+    final dayData = Map<String, dynamic>.from(calendar[dateKey]);
+    final periods = Map<String, dynamic>.from(dayData['periods'] ?? {});
+    final periodData = Map<String, dynamic>.from(periods[periodKey] ?? {});
+    
+    periodData[phase] = data;
+    periods[periodKey] = periodData;
+    dayData['periods'] = periods;
+    calendar[dateKey] = dayData;
+
+    await FirebaseFirestore.instance.collection('corps').doc(corpsId).update({
+      'trainingYears.current.calendar': calendar,
+    });
+  }
+
+  Future<void> _deleteEvent(String dateKey, AuthProvider auth) async {
+    final corpsId = auth.userData?.corpsId;
+    if (corpsId == null) return;
+
+    final Map<String, dynamic> trainingYear = auth.corpsData?.trainingYears['current'] ?? {};
+    final Map<String, dynamic> calendar = Map<String, dynamic>.from(trainingYear['calendar'] ?? {});
+    
+    calendar.remove(dateKey);
+
+    await FirebaseFirestore.instance.collection('corps').doc(corpsId).update({
+      'trainingYears.current.calendar': calendar,
+    });
   }
 }
