@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_data.dart';
 import '../widgets/stat_card.dart';
 import '../providers/auth_provider.dart';
+import '../data/curriculum.dart';
 
 class CadetDetailScreen extends StatelessWidget {
   final UserData cadet;
@@ -123,11 +124,7 @@ class CadetDetailScreen extends StatelessWidget {
             
             const SizedBox(height: 32),
             
-            _buildSection(theme, 'Training Progress', [
-              _buildProgressRow('PO 107 (Sea Cadet Service)', 0.8),
-              _buildProgressRow('PO 108 (Drill)', 0.4),
-              _buildProgressRow('PO 121 (Ropework)', 1.0),
-            ]),
+            _buildSection(theme, 'Training Progress', _buildProgressList(cadet)),
 
             const SizedBox(height: 32),
             
@@ -233,6 +230,37 @@ class CadetDetailScreen extends StatelessWidget {
   int _calculateAge(DateTime? dob) {
     if (dob == null) return 0;
     return DateTime.now().year - dob.year;
+  }
+  List<Widget> _buildProgressList(UserData cadet) {
+    final phase = cadet.phase ?? 'Phase 1';
+    final records = List<String>.from(cadet.trainingRecords[phase] ?? []);
+    final eos = Curriculum.getPhaseEOs(phase);
+    
+    // Group EOs by PO (first 3 chars of ID, e.g., M108 -> 108)
+    Map<String, List<Map<String, dynamic>>> poGroups = {};
+    for (var eo in eos) {
+      final poId = eo['id'].substring(1, 4);
+      poGroups.putIfAbsent(poId, () => []).add(eo);
+    }
+
+    return poGroups.entries.map((entry) {
+      final poId = entry.key;
+      final poEos = entry.value;
+      final completedInPo = poEos.where((eo) => records.contains(eo['id'])).length;
+      final totalInPo = poEos.length;
+      final progress = totalInPo > 0 ? completedInPo / totalInPo : 0.0;
+      
+      // Find a title for the PO (usually matches the first EO's theme)
+      String title = "PO $poId";
+      if (poEos.isNotEmpty) {
+        final fullTitle = poEos.first['title'];
+        if (fullTitle.contains(' - ')) {
+          title = "PO $poId (${fullTitle.split(' - ')[0]})";
+        }
+      }
+
+      return _buildProgressRow(title, progress);
+    }).toList();
   }
 
   Widget _buildSection(ThemeData theme, String title, List<Widget> children) {

@@ -215,6 +215,11 @@ class CalendarScreen extends StatelessWidget {
                   },
                 ),
                 IconButton(
+                  icon: const Icon(LucideIcons.checkCircle, size: 18, color: Colors.greenAccent),
+                  tooltip: 'Finalize Night & Award Credits',
+                  onPressed: () => _finalizeNight(context, auth, day),
+                ),
+                IconButton(
                   icon: const Icon(LucideIcons.trash2, size: 18, color: Colors.white30),
                   onPressed: () => _deleteEvent(day.date, auth),
                 ),
@@ -464,5 +469,81 @@ class CalendarScreen extends StatelessWidget {
     await FirebaseFirestore.instance.collection('corps').doc(corpsId).update({
       'trainingYears.current.calendar': calendar,
     });
+  }
+
+  Future<void> _finalizeNight(BuildContext context, AuthProvider auth, ParadeDay day) async {
+    final corpsId = auth.userData?.corpsId;
+    if (corpsId == null) return;
+
+    // 1. Get attendance for this night
+    final attendanceDoc = await FirebaseFirestore.instance
+        .collection('corps')
+        .doc(corpsId)
+        .collection('attendance')
+        .doc(day.date)
+        .get();
+    
+    if (!attendanceDoc.exists) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mark attendance before finalizing the night!')));
+      }
+      return;
+    }
+
+    final statuses = Map<String, String>.from(attendanceDoc.data()?['statuses'] ?? {});
+    final List<dynamic> cadets = List.from(auth.corpsData?.settings['cadets'] ?? []);
+    
+    // 2. Identify EOs taught per phase
+    Map<String, Set<String>> phaseEos = {};
+    day.periods.forEach((pId, pData) {
+      final levels = Map<String, dynamic>.from(pData);
+      levels.forEach((phase, assignment) {
+        final eoId = assignment['lessonId'];
+        if (eoId != null && eoId.isNotEmpty) {
+          phaseEos.putIfAbsent(phase, () => {}).add(eoId);
+        }
+      });
+    });
+
+    // 3. Update each cadet who was present
+    bool updated = false;
+    for (var i = 0; i < cadets.length; i++) {
+      final cadet = cadets[i];
+      final uid = cadet['uid'];
+      final phase = cadet['phase'] ?? 'Phase 1';
+      final status = statuses[uid];
+
+      if (status == 'Present' || status == 'Late') {
+        final eosForPhase = phaseEos[phase] ?? {};
+        if (eosForPhase.isNotEmpty) {
+          final Map<String, dynamic> records = Map<String, dynamic>.from(cadet['trainingRecords'] ?? {});
+          final List<String> completed = List<String>.from(records[phase] ?? []);
+          
+          final int initialCount = completed.length;
+          for (var eo in eosForPhase) {
+            if (!completed.contains(eo)) completed.add(eo);
+          }
+          
+          if (completed.length > initialCount) {
+            records[phase] = completed;
+            cadets[i]['trainingRecords'] = records;
+            updated = true;
+          }
+        }
+      }
+    }
+
+    if (updated) {
+      await FirebaseFirestore.instance.collection('corps').doc(corpsId).update({
+        'settings.cadets': cadets,
+      });
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Night finalized! Progress bars updated for all present cadets.')));
+      }
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No new progress to record.')));
+      }
+    }
   }
 }

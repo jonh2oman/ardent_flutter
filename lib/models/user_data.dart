@@ -15,6 +15,9 @@ class UserData {
   // Economy
   final int merits;
   
+  // Training Progress
+  final Map<String, dynamic> trainingRecords; // phaseId -> [eoId1, eoId2]
+
   // New Fields from Web App
   final String? cin;
   final String? phone;
@@ -40,6 +43,7 @@ class UserData {
     this.element,
     this.phase,
     this.merits = 0,
+    this.trainingRecords = const {},
     this.cin,
     this.phone,
     this.personalEmail,
@@ -68,6 +72,7 @@ class UserData {
       element: data['element'],
       phase: data['phase']?.toString(),
       merits: data['merits'] ?? 0,
+      trainingRecords: Map<String, dynamic>.from(data['trainingRecords'] ?? {}),
       cin: data['cin'],
       phone: data['phone'],
       personalEmail: data['personalEmail'],
@@ -94,6 +99,7 @@ class UserData {
       'element': element,
       'phase': phase,
       'merits': merits,
+      'trainingRecords': trainingRecords,
       'cin': cin,
       'phone': phone,
       'personalEmail': personalEmail,
