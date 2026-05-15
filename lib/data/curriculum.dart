@@ -45,4 +45,26 @@ class Curriculum {
     }
     return null;
   }
+
+  static List<Map<String, dynamic>> getPhaseEOs(String phase) {
+    final List<Map<String, dynamic>> results = [];
+    final phaseData = data[phase];
+    if (phaseData == null) return results;
+
+    for (var po in phaseData.values) {
+      for (var type in ['M', 'C']) {
+        final list = po[type];
+        if (list == null) continue;
+        for (var item in list) {
+          results.add({
+            'id': item[0],
+            'title': item[1],
+            'periods': item[2],
+            'type': type,
+          });
+        }
+      }
+    }
+    return results;
+  }
 }

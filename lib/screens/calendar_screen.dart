@@ -315,25 +315,71 @@ class CalendarScreen extends StatelessWidget {
                   decoration: const InputDecoration(labelText: 'Phase/Level'),
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: lessonController,
-                  onChanged: (val) {
-                    final eo = Curriculum.findEO(selectedPhase, val);
-                    if (eo != null) {
-                      setDialogState(() {
-                        // We could auto-fill or just show a preview
-                      });
-                    }
+                Autocomplete<Map<String, dynamic>>(
+                  displayStringForOption: (option) => option['id'],
+                  initialValue: TextEditingValue(text: lessonController.text),
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    if (textEditingValue.text.isEmpty) return const Iterable<Map<String, dynamic>>.empty();
+                    return Curriculum.getPhaseEOs(selectedPhase).where((eo) {
+                      return eo['id'].toString().toLowerCase().contains(textEditingValue.text.toLowerCase()) ||
+                             eo['title'].toString().toLowerCase().contains(textEditingValue.text.toLowerCase());
+                    });
                   },
-                  decoration: InputDecoration(
-                    labelText: 'Lesson ID (e.g. M103.01)', 
-                    border: const OutlineInputBorder(),
-                    helperText: Curriculum.findEO(selectedPhase, lessonController.text)?['title'] ?? 'Enter valid EO ID',
-                    helperStyle: TextStyle(
-                      color: Curriculum.findEO(selectedPhase, lessonController.text)?['type'] == 'M' ? Colors.tealAccent : Colors.amberAccent,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  onSelected: (Map<String, dynamic> selection) {
+                    setDialogState(() {
+                      lessonController.text = selection['id'];
+                    });
+                  },
+                  fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                    // Sync the external controller if needed, but usually we just use this one
+                    controller.addListener(() => lessonController.text = controller.text);
+                    if (controller.text.isEmpty && lessonController.text.isNotEmpty) {
+                      controller.text = lessonController.text;
+                    }
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      decoration: InputDecoration(
+                        labelText: 'Search Lesson (e.g. M108)',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(LucideIcons.search, size: 18),
+                        helperText: Curriculum.findEO(selectedPhase, controller.text)?['title'] ?? 'Start typing to search...',
+                        helperStyle: TextStyle(
+                          color: Curriculum.findEO(selectedPhase, controller.text)?['type'] == 'M' ? Colors.tealAccent : Colors.amberAccent,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  },
+                  optionsViewBuilder: (context, onSelected, options) {
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4.0,
+                        color: theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          width: 300,
+                          constraints: const BoxConstraints(maxHeight: 200),
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            itemCount: options.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              final option = options.elementAt(index);
+                              final isMandatory = option['type'] == 'M';
+                              return ListTile(
+                                dense: true,
+                                title: Text(option['id'], style: TextStyle(fontWeight: FontWeight.bold, color: isMandatory ? Colors.tealAccent : Colors.amberAccent)),
+                                subtitle: Text(option['title'], maxLines: 1, overflow: TextOverflow.ellipsis),
+                                onTap: () => onSelected(option),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 TextField(
