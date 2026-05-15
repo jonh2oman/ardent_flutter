@@ -212,10 +212,60 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
 
+  List<_NavItem> _getNavItems(UserData? user) {
+    final modules = user?.permissions['modules'] as Map<String, dynamic>? ?? {};
+    final isSupportAdmin = user?.isSupportAdmin ?? false;
+
+    final items = [
+      _NavItem(
+        icon: LucideIcons.layoutDashboard,
+        label: 'Dashboard',
+        page: const DashboardHome(),
+      ),
+      if (isSupportAdmin || (modules['personnel'] ?? false))
+        _NavItem(
+          icon: LucideIcons.users,
+          label: 'Personnel',
+          page: const PersonnelScreen(),
+        ),
+      if (isSupportAdmin || (modules['finance'] ?? false))
+        _NavItem(
+          icon: LucideIcons.coins,
+          label: 'Exchange',
+          page: const ExchangeScreen(),
+        ),
+      if (isSupportAdmin || (modules['orders'] ?? true))
+        _NavItem(
+          icon: LucideIcons.fileText,
+          label: 'Orders',
+          page: const RoutineOrdersScreen(),
+        ),
+      if (isSupportAdmin || (modules['supply'] ?? true))
+        _NavItem(
+          icon: LucideIcons.package,
+          label: 'Supply',
+          page: const SupplyScreen(),
+        ),
+      _NavItem(
+        icon: LucideIcons.calendar,
+        label: 'Calendar',
+        page: CalendarScreen(),
+      ),
+    ];
+
+    return items;
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final theme = Theme.of(context);
+    final navItems = _getNavItems(authProvider.userData);
+
+    // Guard against index out of bounds if permissions change
+    if (_selectedIndex >= navItems.length) {
+      _selectedIndex = 0;
+    }
 
     return Scaffold(
       body: Row(
@@ -250,68 +300,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-            destinations: const [
-              NavigationRailDestination(
-                icon: Icon(LucideIcons.layoutDashboard),
-                label: Text('Dashboard', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-              ),
-              NavigationRailDestination(
-                icon: Icon(LucideIcons.users),
-                label: Text('Personnel', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-              ),
-              NavigationRailDestination(
-                icon: Icon(LucideIcons.coins),
-                label: Text('Exchange', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-              ),
-              NavigationRailDestination(
-                icon: Icon(LucideIcons.fileText),
-                label: Text('Orders', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-              ),
-              NavigationRailDestination(
-                icon: Icon(LucideIcons.package),
-                label: Text('Supply', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-              ),
-              NavigationRailDestination(
-                icon: Icon(LucideIcons.calendar),
-                label: Text('Calendar', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-              ),
-              NavigationRailDestination(
-                icon: Icon(LucideIcons.settings),
-                label: Text('Settings', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-              ),
-            ],
+            destinations: navItems.map((item) {
+              return NavigationRailDestination(
+                icon: Icon(item.icon),
+                label: Text(item.label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              );
+            }).toList(),
           ),
           const VerticalDivider(thickness: 1, width: 1, color: Colors.white10),
           // Main Content Area
           Expanded(
             child: Container(
               color: theme.scaffoldBackgroundColor,
-              child: _buildCurrentPage(),
+              child: navItems[_selectedIndex].page,
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildCurrentPage() {
-    switch (_selectedIndex) {
-      case 0:
-        return const DashboardHome();
-      case 1:
-        return const PersonnelScreen();
-      case 2:
-        return const ExchangeScreen();
-      case 3:
-        return const RoutineOrdersScreen();
-      case 4:
-        return const SupplyScreen();
-      case 5:
-        return CalendarScreen();
-      default:
-        return Center(child: Text('Module ${(_selectedIndex + 1)} Coming Soon'));
-    }
-  }
+class _NavItem {
+  final IconData icon;
+  final String label;
+  final Widget page;
+
+  _NavItem({required this.icon, required this.label, required this.page});
 }
 
 class DashboardHome extends StatelessWidget {

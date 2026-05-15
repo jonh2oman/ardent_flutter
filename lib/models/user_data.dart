@@ -5,7 +5,9 @@ class UserData {
   final String? lastName;
   final String? rank;
   final String corpsId;
-  final String? displayName;
+  // Permissions & Security
+  final bool isAdmin;
+  final Map<String, dynamic> permissions; // { 'modules': { 'supply': true, ... } }
   final bool isSupportAdmin;
   final bool isPendingAssignment;
   final DateTime? dob;
@@ -40,7 +42,8 @@ class UserData {
     this.lastName,
     this.rank,
     required this.corpsId,
-    this.displayName,
+    this.isAdmin = false,
+    this.permissions = const {},
     this.isSupportAdmin = false,
     this.isPendingAssignment = false,
     this.dob,
@@ -61,7 +64,7 @@ class UserData {
     this.onboardingChecklist,
   });
 
-  String get name => displayName ?? "${firstName ?? ''} ${lastName ?? ''}".trim();
+  String get name => "${firstName ?? ''} ${lastName ?? ''}".trim();
 
   factory UserData.fromMap(Map<String, dynamic> data, String id) {
     return UserData(
@@ -71,7 +74,8 @@ class UserData {
       lastName: data['lastName'],
       rank: data['rank'],
       corpsId: data['corpsId'] ?? 'PENDING',
-      displayName: data['displayName'],
+      isAdmin: data['isAdmin'] ?? false,
+      permissions: Map<String, dynamic>.from(data['permissions'] ?? {}),
       isSupportAdmin: data['isSupportAdmin'] ?? false,
       isPendingAssignment: data['isPendingAssignment'] ?? false,
       dob: data['dob'] != null ? DateTime.tryParse(data['dob'].toString()) : null,

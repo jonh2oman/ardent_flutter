@@ -1,25 +1,89 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_data.dart';
 
-class StaffDetailScreen extends StatelessWidget {
+class StaffDetailScreen extends StatefulWidget {
   final UserData staff;
 
   const StaffDetailScreen({super.key, required this.staff});
 
   @override
+  State<StaffDetailScreen> createState() => _StaffDetailScreenState();
+}
+
+class _StaffDetailScreenState extends State<StaffDetailScreen> {
+  late Map<String, dynamic> _localPermissions;
+  bool _isUpdating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize local state from the passed staff data
+    _localPermissions = Map<String, dynamic>.from(widget.staff.permissions);
+    
+    // Ensure modules map exists
+    if (_localPermissions['modules'] == null) {
+      _localPermissions['modules'] = {
+        'supply': true,
+        'training': true,
+        'finance': false,
+        'personnel': false,
+        'orders': true,
+      };
+    }
+  }
+
+  Future<void> _togglePermission(String moduleKey) async {
+    setState(() => _isUpdating = true);
+
+    try {
+      final currentModules = Map<String, dynamic>.from(_localPermissions['modules'] ?? {});
+      final newValue = !(currentModules[moduleKey] ?? false);
+      currentModules[moduleKey] = newValue;
+
+      await FirebaseFirestore.instance.collection('users').doc(widget.staff.id).update({
+        'permissions.modules.$moduleKey': newValue,
+        // If they have access to sensitive modules, they should probably be marked as admin in some systems
+        'isAdmin': currentModules['personnel'] == true || currentModules['finance'] == true,
+      });
+
+      setState(() {
+        _localPermissions['modules'] = currentModules;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Permissions updated for ${widget.staff.lastName}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating permissions: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    } finally {
+      setState(() => _isUpdating = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final modules = _localPermissions['modules'] as Map<String, dynamic>;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${staff.rank ?? "OFFICER"} ${staff.lastName ?? "DETAIL"}'.toUpperCase()),
+        title: Text('${widget.staff.rank ?? "OFFICER"} ${widget.staff.lastName ?? "DETAIL"}'.toUpperCase()),
         actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.edit3),
-            onPressed: () {},
-            tooltip: 'Edit Profile',
-          ),
+          if (_isUpdating)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.only(right: 16.0),
+                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
+            ),
         ],
       ),
       body: SingleChildScrollView(
@@ -44,12 +108,12 @@ class StaffDetailScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "${staff.firstName} ${staff.lastName}".toUpperCase(),
+                            "${widget.staff.firstName} ${widget.staff.lastName}".toUpperCase(),
                             style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            "${staff.rank ?? 'Officer'} • ${staff.email}",
+                            "${widget.staff.rank ?? 'Officer'} • ${widget.staff.email}",
                             style: TextStyle(fontSize: 16, color: theme.colorScheme.primary, fontWeight: FontWeight.bold),
                           ),
                         ],
@@ -75,7 +139,7 @@ class StaffDetailScreen extends StatelessWidget {
                         icon: LucideIcons.briefcase,
                         children: [
                           _buildDetailRow('Primary Role', 'Unit Staff'),
-                          _buildDetailRow('Security Level', staff.isSupportAdmin ? 'Admin' : 'Standard'),
+                          _buildDetailRow('Security Level', widget.staff.isSupportAdmin ? 'Admin' : 'Standard'),
                           _buildDetailRow('Commission Date', 'N/A'),
                         ],
                       ),
@@ -84,7 +148,7 @@ class StaffDetailScreen extends StatelessWidget {
                         title: 'CONTACT INFORMATION',
                         icon: LucideIcons.phone,
                         children: [
-                          _buildDetailRow('Work Email', staff.email),
+                          _buildDetailRow('Work Email', widget.staff.email),
                           _buildDetailRow('Phone', 'N/A'),
                         ],
                       ),
@@ -98,11 +162,11 @@ class StaffDetailScreen extends StatelessWidget {
                     title: 'MODULE PERMISSIONS',
                     icon: LucideIcons.lock,
                     children: [
-                      _buildPermissionToggle('Supply Hub', true),
-                      _buildPermissionToggle('Training Records', true),
-                      _buildPermissionToggle('Finance/Exchange', staff.isSupportAdmin),
-                      _buildPermissionToggle('Personnel Management', staff.isSupportAdmin),
-                      _buildPermissionToggle('Routine Orders', true),
+                      _buildPermissionToggle('Supply Hub', 'supply', modules['supply'] ?? false),
+                      _buildPermissionToggle('Training Records', 'training', modules['training'] ?? false),
+                      _buildPermissionToggle('Finance/Exchange', 'finance', modules['finance'] ?? false),
+                      _buildPermissionToggle('Personnel Management', 'personnel', modules['personnel'] ?? false),
+                      _buildPermissionToggle('Routine Orders', 'orders', modules['orders'] ?? false),
                     ],
                   ),
                 ),
@@ -149,26 +213,34 @@ class StaffDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPermissionToggle(String label, bool isEnabled) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
-        children: [
-          Icon(
-            isEnabled ? LucideIcons.checkCircle2 : LucideIcons.circle,
-            size: 16,
-            color: isEnabled ? Colors.greenAccent : Colors.white24,
-          ),
-          const SizedBox(width: 12),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              color: isEnabled ? Colors.white : Colors.white38,
-              decoration: isEnabled ? null : TextDecoration.lineThrough,
+  Widget _buildPermissionToggle(String label, String key, bool isEnabled) {
+    return InkWell(
+      onTap: _isUpdating ? null : () => _togglePermission(key),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          children: [
+            Icon(
+              isEnabled ? LucideIcons.checkCircle2 : LucideIcons.circle,
+              size: 16,
+              color: isEnabled ? Colors.greenAccent : Colors.white24,
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isEnabled ? Colors.white : Colors.white38,
+                  decoration: isEnabled ? null : TextDecoration.lineThrough,
+                ),
+              ),
+            ),
+            if (isEnabled)
+              const Icon(LucideIcons.shieldCheck, size: 14, color: Colors.blueAccent),
+          ],
+        ),
       ),
     );
   }
