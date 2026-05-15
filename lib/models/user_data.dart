@@ -16,7 +16,11 @@ class UserData {
   final int merits;
   
   // Training Progress
-  final Map<String, dynamic> trainingRecords; // phaseId -> [eoId1, eoId2]
+  final Map<String, dynamic> trainingRecords;
+
+  // Logistics & Uniform
+  final Map<String, dynamic> uniformSizes; // { 'tunic': '36R', 'boots': '9.5', ... }
+  final List<dynamic> issuedKit; // [ { 'item': 'Tunic', 'serial': '1234', 'date': '...' } ]
 
   // New Fields from Web App
   final String? cin;
@@ -44,6 +48,8 @@ class UserData {
     this.phase,
     this.merits = 0,
     this.trainingRecords = const {},
+    this.uniformSizes = const {},
+    this.issuedKit = const [],
     this.cin,
     this.phone,
     this.personalEmail,
@@ -73,6 +79,8 @@ class UserData {
       phase: data['phase']?.toString(),
       merits: data['merits'] ?? 0,
       trainingRecords: Map<String, dynamic>.from(data['trainingRecords'] ?? {}),
+      uniformSizes: Map<String, dynamic>.from(data['uniformSizes'] ?? {}),
+      issuedKit: List<dynamic>.from(data['issuedKit'] ?? []),
       cin: data['cin'],
       phone: data['phone'],
       personalEmail: data['personalEmail'],
@@ -100,6 +108,8 @@ class UserData {
       'phase': phase,
       'merits': merits,
       'trainingRecords': trainingRecords,
+      'uniformSizes': uniformSizes,
+      'issuedKit': issuedKit,
       'cin': cin,
       'phone': phone,
       'personalEmail': personalEmail,

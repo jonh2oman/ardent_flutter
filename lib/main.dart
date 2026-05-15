@@ -10,6 +10,7 @@ import 'screens/personnel_screen.dart';
 import 'screens/attendance_screen.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/exchange_screen.dart';
+import 'screens/supply_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -262,6 +263,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 label: Text('Exchange', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
               ),
               NavigationRailDestination(
+                icon: Icon(LucideIcons.package),
+                label: Text('Supply', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              ),
+              NavigationRailDestination(
                 icon: Icon(LucideIcons.calendar),
                 label: Text('Calendar', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
               ),
@@ -293,6 +298,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 2:
         return const ExchangeScreen();
       case 3:
+        return const SupplyScreen();
+      case 4:
         return const CalendarScreen();
       default:
         return Center(child: Text('Module ${(_selectedIndex + 1)} Coming Soon'));

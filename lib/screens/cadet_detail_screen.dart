@@ -127,6 +127,43 @@ class CadetDetailScreen extends StatelessWidget {
             _buildSection(theme, 'Training Progress', _buildProgressList(cadet)),
 
             const SizedBox(height: 32),
+
+            // Uniform Sizes
+            _buildSection(theme, 'Uniform Sizes', [
+              _buildDetailRow('Headdress', cadet.uniformSizes['headdress'] ?? 'N/A'),
+              _buildDetailRow('Tunic/Shirt', cadet.uniformSizes['tunic'] ?? 'N/A'),
+              _buildDetailRow('Trousers', cadet.uniformSizes['trousers'] ?? 'N/A'),
+              _buildDetailRow('Boots', cadet.uniformSizes['boots'] ?? 'N/A'),
+            ]),
+
+            const SizedBox(height: 32),
+
+            // Issued Kit
+            _buildSection(theme, 'Issued Kit Ledger', [
+              if (cadet.issuedKit.isEmpty)
+                const Center(child: Text('No kit currently issued', style: TextStyle(color: Colors.white24, fontSize: 12)))
+              else
+                ...cadet.issuedKit.map((item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: Row(
+                    children: [
+                      Icon(LucideIcons.package, size: 16, color: theme.colorScheme.primary),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(item['item'] ?? 'Unknown Item', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            Text('S/N: ${item['serial'] ?? '---'} • Issued: ${item['date'] ?? '---'}', style: const TextStyle(fontSize: 10, color: Colors.white30)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )).toList(),
+            ]),
+
+            const SizedBox(height: 32),
             
             SizedBox(
               width: double.infinity,
