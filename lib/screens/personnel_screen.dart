@@ -119,7 +119,17 @@ class _PersonnelScreenState extends State<PersonnelScreen> {
             "${cadet['rank'] ?? 'Cadet'} • Phase ${cadet['phase'] ?? 'N/A'}",
             style: TextStyle(fontSize: 12, color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6)),
           ),
-          trailing: Icon(LucideIcons.chevronRight, size: 16, color: theme.iconTheme.color?.withOpacity(0.3)),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(LucideIcons.userMinus, size: 16, color: Colors.redAccent),
+                onPressed: () => _removeCadet(context, authProvider, cadet),
+                tooltip: 'Strike Off Strength',
+              ),
+              Icon(LucideIcons.chevronRight, size: 16, color: theme.iconTheme.color?.withOpacity(0.3)),
+            ],
+          ),
           onTap: () {
             final userData = UserData.fromMap(cadet as Map<String, dynamic>, cadet['uid'] ?? '');
             Navigator.push(context, MaterialPageRoute(builder: (_) => CadetDetailScreen(cadet: userData)));
@@ -329,10 +339,20 @@ class _PersonnelScreenState extends State<PersonnelScreen> {
   }
 
   void _saveFullCadet(BuildContext context, AuthProvider auth, Map<String, dynamic> data) async {
+    // PREVENT BLANK PROFILES
+    if ((data['firstName'] ?? '').toString().trim().isEmpty || 
+        (data['lastName'] ?? '').toString().trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: First and Last Name are required.'), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+
     final newCadet = {
       ...data,
       'uid': 'cadet_${DateTime.now().millisecondsSinceEpoch}',
       'role': 'cadet',
+      'isArchived': false,
     };
 
     final corpsRef = FirebaseFirestore.instance.collection('corps').doc(auth.corpsData!.id);
@@ -341,5 +361,30 @@ class _PersonnelScreenState extends State<PersonnelScreen> {
     });
 
     if (context.mounted) Navigator.pop(context);
+  }
+
+  Future<void> _removeCadet(BuildContext context, AuthProvider auth, Map<String, dynamic> cadet) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('STRIKE OFF STRENGTH?'),
+        content: Text('Are you sure you want to remove ${cadet['firstName'] ?? "this blank profile"} from the roster?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(context, true), 
+            child: const Text('REMOVE'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final corpsRef = FirebaseFirestore.instance.collection('corps').doc(auth.corpsData!.id);
+      await corpsRef.update({
+        'settings.cadets': FieldValue.arrayRemove([cadet])
+      });
+    }
   }
 }

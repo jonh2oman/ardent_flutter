@@ -179,10 +179,66 @@ class CadetDetailScreen extends StatelessWidget {
                 label: const Text('AWARD MERITS', style: TextStyle(fontWeight: FontWeight.w900)),
               ),
             ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.redAccent,
+                  side: const BorderSide(color: Colors.redAccent),
+                  padding: const EdgeInsets.all(20),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () => _confirmSOS(context, auth),
+                icon: const Icon(LucideIcons.userMinus),
+                label: const Text('STRIKE OFF STRENGTH', style: TextStyle(fontWeight: FontWeight.w900)),
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _confirmSOS(BuildContext context, AuthProvider auth) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('STRIKE OFF STRENGTH?'),
+        content: Text('Are you sure you want to permanently remove ${cadet.name} from the roster? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(context, true), 
+            child: const Text('REMOVE'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final corpsId = auth.userData?.corpsId;
+      if (corpsId == null) return;
+
+      final corpsRef = FirebaseFirestore.instance.collection('corps').doc(corpsId);
+      final corpsDoc = await corpsRef.get();
+      if (!corpsDoc.exists) return;
+
+      final List<dynamic> cadets = List.from(corpsDoc.data()?['settings']?['cadets'] ?? []);
+      cadets.removeWhere((c) => c['uid'] == cadet.id);
+      
+      await corpsRef.update({
+        'settings.cadets': cadets,
+      });
+
+      if (context.mounted) {
+        Navigator.pop(context); // Go back to roster
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${cadet.name} has been struck off strength.')),
+        );
+      }
+    }
   }
 
   void _showAwardMeritsDialog(BuildContext context, AuthProvider auth) {
