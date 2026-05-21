@@ -28,5 +28,9 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Used to upload inventory photos for the Ardent Exchange.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Used to take photos of inventory for the Ardent Exchange.</string>
 </dict>
 </plist>

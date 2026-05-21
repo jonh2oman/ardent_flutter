@@ -1,0 +1,119 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =============== GLOBAL AUTH HELPERS ===============
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isSystemAdmin() {
+      return (request.auth != null && request.auth.token.email == "jonathan@waterman.work");
+    }
+
+    function isUnitSupportAdmin() {
+      return userExists() && userDoc().data.isSupportAdmin == true;
+    }
+
+    function userCorpsId() {
+      return userExists() ? userDoc().data.corpsId : null;
+    }
+    // ===================================================
+
+    // ---------------- PUBLIC CORPS REGISTRY -----------------
+    match /public_corps/{corpsId} {
+      allow read, get, list: if true;
+      allow write: if isSystemAdmin() || isUnitSupportAdmin();
+    }
+    
+    // ---------------- MODULE ACTIVATIONS -----------------
+    match /module_activations/{requestId} {
+      allow create: if request.auth != null;
+      allow read, list, update, delete: if isSystemAdmin() || (isUnitSupportAdmin() && resource.data.corpsId == userCorpsId()) || (request.auth != null && resource.data.userId == request.auth.uid);
+    }
+
+    // ----------------- EO COLLECTION -----------------
+    match /eo_list/{eoId} {
+      allow read: if request.auth != null;
+    }
+
+    // ---------------- USERS COLLECTION -----------------
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+      allow read, list: if isSystemAdmin();
+      allow read, list: if request.auth != null && (resource.data.corpsId == userCorpsId() || resource.data.corpsId == 'PENDING');
+      allow update, delete: if isSystemAdmin() && resource.data.email != "jonathan@waterman.work";
+      allow update: if (isUnitSupportAdmin() || request.auth.uid == userId) && (resource.data.corpsId == userCorpsId() || resource.data.corpsId == 'PENDING');
+      allow delete: if isUnitSupportAdmin() && resource.data.corpsId == userCorpsId();
+    }
+
+    // ---------------- CORPS COLLECTION -----------------
+    match /corps/{corpsId} {
+      // Broadened read access for unit members and admins
+      allow read: if request.auth != null && (userCorpsId() == corpsId || isSystemAdmin() || isUnitSupportAdmin());
+      allow update, delete: if userCorpsId() == corpsId || isSystemAdmin() || isUnitSupportAdmin();
+      allow create: if userCorpsId() == null;
+      allow list: if isSystemAdmin() || isUnitSupportAdmin();
+
+      match /trainingSchedules/{year} {
+        allow read, write, delete: if userCorpsId() == corpsId || isSystemAdmin();
+      }
+
+      match /milestone_certificates/{certificateId} {
+        allow read, write: if userCorpsId() == corpsId || isSystemAdmin();
+      }
+
+      match /attendance/{date} {
+        allow read, write: if userCorpsId() == corpsId || isSystemAdmin() || isUnitSupportAdmin();
+      }
+
+      // Explicitly allow subcollection access for cadets
+      match /cadets/{cadetId} {
+        allow read, write: if request.auth != null && (userCorpsId() == corpsId || isSystemAdmin() || isUnitSupportAdmin() || request.auth.uid == cadetId);
+      }
+
+      match /cadets/{cadetId}/transactions/{txId} {
+        // DIAGNOSTIC: Open access for testing
+        allow read, write: if request.auth != null;
+      }
+      
+      // Fallback for any other subcollections
+      match /{allPaths=**} {
+        allow read, write: if request.auth != null && (userCorpsId() == corpsId || isSystemAdmin() || isUnitSupportAdmin());
+      }
+    }
+
+    // ---------------- INVITES COLLECTION -----------------
+    match /invites/{email} {
+      allow get: if request.auth != null && (request.auth.token.email.lower() == email.lower() || isSystemAdmin() || isUnitSupportAdmin());
+      allow list: if isSystemAdmin() || (isUnitSupportAdmin() && resource.data.corpsId == userCorpsId());
+      allow delete: if request.auth.token.email.lower() == email.lower() || isSystemAdmin() || (isUnitSupportAdmin() && resource.data.corpsId == userCorpsId());
+      allow create, update: if isSystemAdmin() || (isUnitSupportAdmin() && request.resource.data.corpsId == userCorpsId());
+    }
+
+    // ---------------- TICKETS COLLECTION -----------------
+    match /tickets/{ticketId} {
+      allow create: if request.auth != null;
+      allow read, update, list: if request.auth.uid == resource.data.userId || isSystemAdmin() || (isUnitSupportAdmin() && resource.data.corpsId == userCorpsId());
+      allow delete: if isSystemAdmin();
+
+       match /responses/{responseId} {
+        allow create: if request.auth.uid == get(/databases/$(database)/documents/tickets/$(ticketId)).data.userId || isSystemAdmin() || (isUnitSupportAdmin() && get(/databases/$(database)/documents/tickets/$(ticketId)).data.corpsId == userCorpsId());
+        allow read, list: if request.auth.uid == get(/databases/$(database)/documents/tickets/$(ticketId)).data.userId || isSystemAdmin() || (isUnitSupportAdmin() && get(/databases/$(database)/documents/tickets/$(ticketId)).data.corpsId == userCorpsId());
+        allow delete: if isSystemAdmin();
+      }
+    }
+
+    // ---------------- AWARDS COLLECTION -----------------
+    match /awards/{awardId} {
+      allow read, list: if request.auth != null && (resource == null || resource.data.corpsId == userCorpsId() || isSystemAdmin() || isUnitSupportAdmin());
+      allow create: if request.auth != null && request.resource.data.corpsId == userCorpsId();
+      allow update, delete: if request.auth != null && (resource.data.corpsId == userCorpsId() || isSystemAdmin() || isUnitSupportAdmin());
+    }
+  }
+}

@@ -7,12 +7,17 @@ class StatCard extends StatelessWidget {
   final IconData icon;
   final Color? iconColor;
 
+  final VoidCallback? onAction;
+  final IconData? actionIcon;
+
   const StatCard({
     super.key,
     required this.title,
     required this.value,
     required this.icon,
     this.iconColor,
+    this.onAction,
+    this.actionIcon,
   });
 
   @override
@@ -35,18 +40,39 @@ class StatCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, size: 16, color: iconColor ?? Colors.white.withOpacity(0.6)),
-              const SizedBox(width: 8),
-              Text(
-                title.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.2,
-                  color: Colors.white.withOpacity(0.6),
-                ),
+              Row(
+                children: [
+                  Icon(icon, size: 16, color: iconColor ?? Colors.white.withOpacity(0.6)),
+                  const SizedBox(width: 8),
+                  Text(
+                    title.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
+                      color: Colors.white.withOpacity(0.6),
+                    ),
+                  ),
+                ],
               ),
+              if (onAction != null)
+                GestureDetector(
+                  onTap: onAction,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: (iconColor ?? Colors.white).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Icon(
+                      actionIcon ?? Icons.add,
+                      size: 14,
+                      color: iconColor ?? Colors.white,
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 12),

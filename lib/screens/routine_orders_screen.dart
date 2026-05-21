@@ -4,6 +4,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/auth_provider.dart';
 import '../models/parade_day.dart';
+import '../models/user_data.dart';
+import '../services/pdf_service.dart';
 
 class RoutineOrdersScreen extends StatefulWidget {
   const RoutineOrdersScreen({super.key});
@@ -14,6 +16,48 @@ class RoutineOrdersScreen extends StatefulWidget {
 
 class _RoutineOrdersScreenState extends State<RoutineOrdersScreen> {
   String? _selectedDate;
+  List<UserData> _staff = [];
+  bool _loadingStaff = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initial fetch happens in didChangeDependencies
+  }
+
+  String? _lastCorpsId;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = Provider.of<AuthProvider>(context);
+    final corpsId = auth.userData?.corpsId;
+    if (corpsId != _lastCorpsId) {
+      _lastCorpsId = corpsId;
+      _fetchStaff();
+    }
+  }
+
+  Future<void> _fetchStaff() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final corpsId = auth.userData?.corpsId;
+    if (corpsId == null) return;
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('corpsId', isEqualTo: corpsId)
+        .get();
+
+    if (mounted) {
+      setState(() {
+        _staff = snapshot.docs
+            .map((doc) => UserData.fromMap(doc.data(), doc.id))
+            .where((u) => u.isArchived != true)
+            .toList();
+        _loadingStaff = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,12 +128,14 @@ class _RoutineOrdersScreenState extends State<RoutineOrdersScreen> {
           _buildCard(
             title: 'Duty Roster',
             icon: LucideIcons.userCheck,
-            children: [
-              _buildDutyField(context, auth, day, 'Duty Officer', 'dutyOfficer'),
-              _buildDutyField(context, auth, day, 'Duty Petty Officer', 'dutyPO'),
-              _buildDutyField(context, auth, day, 'Duty Coxswain', 'dutyCoxn'),
-              _buildDutyField(context, auth, day, 'Duty Division', 'dutyDivision'),
-            ],
+            children: _loadingStaff 
+              ? [const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()))]
+              : [
+                _buildStaffDropdown(context, auth, day, 'Duty Officer', 'dutyOfficer'),
+                _buildCadetDropdown(context, auth, day, 'Duty Petty Officer', 'dutyPO'),
+                _buildCadetDropdown(context, auth, day, 'Duty Coxswain', 'dutyCoxn'),
+                _buildDivisionDropdown(context, auth, day, 'Duty Division', 'dutyDivision'),
+              ],
           ),
           const SizedBox(height: 24),
           _buildCard(
@@ -116,36 +162,117 @@ class _RoutineOrdersScreenState extends State<RoutineOrdersScreen> {
             ],
           ),
           const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orangeAccent,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.all(20),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orangeAccent,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.all(20),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: () => _showROPreview(context, auth, day),
+                  icon: const Icon(LucideIcons.eye),
+                  label: const Text('PREVIEW', style: TextStyle(fontWeight: FontWeight.w900)),
+                ),
               ),
-              onPressed: () => _showROPreview(context, auth, day),
-              icon: const Icon(LucideIcons.eye),
-              label: const Text('PREVIEW ROUTINE ORDERS', style: TextStyle(fontWeight: FontWeight.w900)),
-            ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.greenAccent,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.all(20),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: () {
+                    if (auth.corpsData != null) {
+                      PdfService.exportRoutineOrders(day, auth.corpsData!);
+                    }
+                  },
+                  icon: const Icon(LucideIcons.download),
+                  label: const Text('EXPORT PDF', style: TextStyle(fontWeight: FontWeight.w900)),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDutyField(BuildContext context, AuthProvider auth, ParadeDay day, String label, String key) {
+  Widget _buildStaffDropdown(BuildContext context, AuthProvider auth, ParadeDay day, String label, String key) {
+    final currentValue = day.dutyRoster[key];
+    
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
-      child: TextField(
-        controller: TextEditingController(text: day.dutyRoster[key]),
-        onChanged: (val) => _updateDuty(auth, day, key, val),
+      child: DropdownButtonFormField<String>(
+        value: _staff.any((s) => s.name == currentValue) ? currentValue : null,
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(fontSize: 10, color: Colors.white30),
         ),
-        style: const TextStyle(fontSize: 14),
+        dropdownColor: const Color(0xFF1A1A1A),
+        style: const TextStyle(fontSize: 14, color: Colors.white),
+        items: _staff.map((s) => DropdownMenuItem<String>(
+          value: s.name,
+          child: Text("${s.rank ?? ''} ${s.name}"),
+        )).toList(),
+        onChanged: (val) {
+          if (val != null) _updateDuty(auth, day, key, val);
+        },
+      ),
+    );
+  }
+
+  Widget _buildCadetDropdown(BuildContext context, AuthProvider auth, ParadeDay day, String label, String key) {
+    final currentValue = day.dutyRoster[key];
+    final List<dynamic> cadetsRaw = auth.corpsData?.settings['cadets'] ?? [];
+    final List<UserData> cadets = cadetsRaw.map((c) => UserData.fromMap(Map<String, dynamic>.from(c), c['id'] ?? c['uid'] ?? '')).toList();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: DropdownButtonFormField<String>(
+        value: cadets.any((c) => c.name == currentValue) ? currentValue : null,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(fontSize: 10, color: Colors.white30),
+        ),
+        dropdownColor: const Color(0xFF1A1A1A),
+        style: const TextStyle(fontSize: 14, color: Colors.white),
+        items: cadets.map((c) => DropdownMenuItem<String>(
+          value: c.name,
+          child: Text("${c.rank ?? 'Cadet'} ${c.name}"),
+        )).toList(),
+        onChanged: (val) {
+          if (val != null) _updateDuty(auth, day, key, val);
+        },
+      ),
+    );
+  }
+
+  Widget _buildDivisionDropdown(BuildContext context, AuthProvider auth, ParadeDay day, String label, String key) {
+    final currentValue = day.dutyRoster[key];
+    final List<String> divisions = List<String>.from(auth.corpsData?.settings['divisions'] ?? ['Main Deck', 'Quarterdeck', 'Forecastle', 'Aft Deck', 'Training Office']);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: DropdownButtonFormField<String>(
+        value: divisions.contains(currentValue) ? currentValue : null,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(fontSize: 10, color: Colors.white30),
+        ),
+        dropdownColor: const Color(0xFF1A1A1A),
+        style: const TextStyle(fontSize: 14, color: Colors.white),
+        items: divisions.map((d) => DropdownMenuItem(
+          value: d,
+          child: Text(d),
+        )).toList(),
+        onChanged: (val) {
+          if (val != null) _updateDuty(auth, day, key, val);
+        },
       ),
     );
   }
@@ -238,7 +365,15 @@ class _RoutineOrdersScreenState extends State<RoutineOrdersScreen> {
               backgroundColor: Colors.blueGrey[900],
               title: const Text('Routine Orders Preview'),
               actions: [
-                IconButton(icon: const Icon(LucideIcons.printer), onPressed: () {}),
+                IconButton(
+                  icon: const Icon(LucideIcons.download), 
+                  onPressed: () {
+                    if (auth.corpsData != null) {
+                      PdfService.exportRoutineOrders(day, auth.corpsData!);
+                    }
+                  },
+                  tooltip: 'Download PDF',
+                ),
                 IconButton(icon: const Icon(LucideIcons.x), onPressed: () => Navigator.pop(context)),
               ],
             ),
@@ -251,9 +386,18 @@ class _RoutineOrdersScreenState extends State<RoutineOrdersScreen> {
                     Center(
                       child: Column(
                         children: [
-                          Text('ROUTINE ORDERS', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.black)),
-                          Text('Issued by LT(N) COMMANDING OFFICER', style: TextStyle(fontSize: 12, color: Colors.black54)),
-                          Text('RCSCC 288 ARDENT', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black)),
+                          if (auth.corpsData?.logoUrl != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: Image.network(
+                                auth.corpsData!.logoUrl!,
+                                height: 80,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          Text('ROUTINE ORDERS', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.black)),
+                          Text('Issued by ${auth.corpsData?.coRank} ${auth.corpsData?.coName}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                          Text(auth.corpsData?.unitDesignation.toUpperCase() ?? '', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black)),
                           const SizedBox(height: 10),
                           Container(height: 2, width: 200, color: Colors.black),
                           const SizedBox(height: 10),

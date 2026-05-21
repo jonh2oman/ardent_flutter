@@ -8,10 +8,23 @@ import '../widgets/stat_card.dart';
 import '../providers/auth_provider.dart';
 import '../data/curriculum.dart';
 
-class CadetDetailScreen extends StatelessWidget {
+class CadetDetailScreen extends StatefulWidget {
   final UserData cadet;
 
   const CadetDetailScreen({super.key, required this.cadet});
+
+  @override
+  State<CadetDetailScreen> createState() => _CadetDetailScreenState();
+}
+
+class _CadetDetailScreenState extends State<CadetDetailScreen> {
+  late UserData cadet;
+
+  @override
+  void initState() {
+    super.initState();
+    cadet = widget.cadet;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,10 +87,12 @@ class CadetDetailScreen extends StatelessWidget {
             Row(
               children: [
                 Expanded(child: StatCard(title: 'Age', value: age > 0 ? '$age' : '--', icon: LucideIcons.user, iconColor: Colors.blueAccent)),
-                const SizedBox(width: 16),
-                Expanded(child: StatCard(title: 'Attendance', value: '$attendancePercent%', icon: LucideIcons.checkCircle, iconColor: Colors.greenAccent)),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
+                Expanded(child: StatCard(title: 'Attend', value: '$attendancePercent%', icon: LucideIcons.checkCircle, iconColor: Colors.greenAccent)),
+                const SizedBox(width: 12),
                 Expanded(child: StatCard(title: 'Merits', value: '${cadet.merits}', icon: LucideIcons.coins, iconColor: Colors.amberAccent)),
+                const SizedBox(width: 12),
+                Expanded(child: StatCard(title: 'Cash', value: '\$${cadet.cashBalance.toStringAsFixed(2)}', icon: LucideIcons.wallet, iconColor: Colors.greenAccent)),
               ],
             ),
             const SizedBox(height: 32),
@@ -89,6 +104,33 @@ class CadetDetailScreen extends StatelessWidget {
               _buildDetailRow('Personal Phone', cadet.phone ?? 'N/A'),
               _buildDetailRow('Personal Email', cadet.personalEmail ?? 'N/A'),
               _buildDetailRow('Cadet Email', cadet.cadetEmail ?? 'N/A'),
+            ]),
+            
+            const SizedBox(height: 32),
+
+            // Tags
+            _buildSection(theme, 'Tags & Teams', [
+              if (cadet.tags.isEmpty)
+                const Text('No tags assigned', style: TextStyle(color: Colors.white30, fontSize: 12))
+              else
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: cadet.tags.map((t) => Chip(
+                    label: Text(t, style: const TextStyle(fontSize: 10)),
+                    backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
+                    side: BorderSide.none,
+                  )).toList(),
+                ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => _showEditTagsDialog(context, auth),
+                  icon: const Icon(LucideIcons.tag, size: 14),
+                  label: const Text('EDIT TAGS'),
+                ),
+              ),
             ]),
             
             const SizedBox(height: 32),
@@ -318,6 +360,70 @@ class CadetDetailScreen extends StatelessWidget {
         'settings.cadets': cadets,
       });
     }
+  }
+
+  void _showEditTagsDialog(BuildContext context, AuthProvider auth) {
+    final tagsCtrl = TextEditingController(text: cadet.tags.join(', '));
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Tags'),
+        content: TextField(
+          controller: tagsCtrl,
+          decoration: const InputDecoration(labelText: 'Tags (comma separated)', hintText: 'e.g. Band, Guard, Marksmanship'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          ElevatedButton(
+            onPressed: () async {
+              final newTags = tagsCtrl.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+              final corpsRef = FirebaseFirestore.instance.collection('corps').doc(auth.userData!.corpsId);
+              final corpsDoc = await corpsRef.get();
+              if (corpsDoc.exists) {
+                final List<dynamic> cadets = List.from(corpsDoc.data()?['settings']?['cadets'] ?? []);
+                final index = cadets.indexWhere((c) => (c['uid'] ?? c['id'] ?? '').toString() == cadet.id);
+                if (index != -1) {
+                  cadets[index]['tags'] = newTags;
+                  await corpsRef.update({'settings.cadets': cadets});
+                }
+              }
+              if (context.mounted) {
+                setState(() {
+                  cadet = UserData(
+                    id: cadet.id,
+                    email: cadet.email,
+                    corpsId: cadet.corpsId,
+                    firstName: cadet.firstName,
+                    lastName: cadet.lastName,
+                    rank: cadet.rank,
+                    position: cadet.position,
+                    phase: cadet.phase,
+                    cin: cadet.cin,
+                    merits: cadet.merits,
+                    cashBalance: cadet.cashBalance,
+                    isArchived: cadet.isArchived,
+                    dob: cadet.dob,
+                    phone: cadet.phone,
+                    personalEmail: cadet.personalEmail,
+                    cadetEmail: cadet.cadetEmail,
+                    address: cadet.address,
+                    parents: cadet.parents,
+                    uniformSizes: cadet.uniformSizes,
+                    issuedKit: cadet.issuedKit,
+                    trainingRecords: cadet.trainingRecords,
+                    enrolmentDate: cadet.enrolmentDate,
+                    tags: newTags,
+                  );
+                });
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tags updated successfully!')));
+              }
+            },
+            child: const Text('SAVE'),
+          ),
+        ],
+      ),
+    );
   }
 
   int _calculateAge(DateTime? dob) {

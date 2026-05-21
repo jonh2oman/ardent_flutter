@@ -11,12 +11,16 @@ class UserData {
   final Map<String, dynamic> permissions; // { 'modules': { 'supply': true, ... } }
   final bool isSupportAdmin;
   final bool isPendingAssignment;
+  final bool isArchived;
   final DateTime? dob;
   final String? element;
   final String? phase;
+  final DateTime? enrolmentDate;
+  final DateTime? lastPromotionDate;
   
   // Economy
   final int merits;
+  final double cashBalance;
   
   // Training Progress
   final Map<String, dynamic> trainingRecords;
@@ -35,6 +39,7 @@ class UserData {
   final String? provincialHealthNumber;
   final String? privateInsuranceProvider;
   final Map<String, dynamic>? onboardingChecklist;
+  final List<String> tags;
 
   UserData({
     required this.id,
@@ -48,10 +53,12 @@ class UserData {
     this.permissions = const {},
     this.isSupportAdmin = false,
     this.isPendingAssignment = false,
+    this.isArchived = false,
     this.dob,
     this.element,
     this.phase,
     this.merits = 0,
+    this.cashBalance = 0.0,
     this.trainingRecords = const {},
     this.uniformSizes = const {},
     this.issuedKit = const [],
@@ -64,11 +71,30 @@ class UserData {
     this.provincialHealthNumber,
     this.privateInsuranceProvider,
     this.onboardingChecklist,
+    this.enrolmentDate,
+    this.lastPromotionDate,
+    this.tags = const [],
   });
 
-  String get name => "${firstName ?? ''} ${lastName ?? ''}".trim();
+  bool get isValid => (firstName != null && firstName!.isNotEmpty && firstName!.toLowerCase() != 'null') || 
+                      (lastName != null && lastName!.isNotEmpty && lastName!.toLowerCase() != 'null');
+
+  String get name {
+    String f = (firstName ?? '').toString();
+    String l = (lastName ?? '').toString();
+    if (f.toLowerCase() == 'null') f = '';
+    if (l.toLowerCase() == 'null') l = '';
+    String fullName = "$f $l".trim();
+    if (fullName.isEmpty) {
+      return email.isNotEmpty ? email : "Incomplete Profile";
+    }
+    return fullName;
+  }
 
   factory UserData.fromMap(Map<String, dynamic> data, String id) {
+    final enrolmentDate = data['enrolmentDate'] != null ? DateTime.tryParse(data['enrolmentDate'].toString()) : null;
+    final lastPromotionDate = data['lastPromotionDate'] != null ? DateTime.tryParse(data['lastPromotionDate'].toString()) : null;
+
     return UserData(
       id: id,
       email: data['email'] ?? '',
@@ -81,10 +107,12 @@ class UserData {
       permissions: Map<String, dynamic>.from(data['permissions'] ?? {}),
       isSupportAdmin: data['isSupportAdmin'] ?? false,
       isPendingAssignment: data['isPendingAssignment'] ?? false,
+      isArchived: data['isArchived'] ?? false,
       dob: data['dob'] != null ? DateTime.tryParse(data['dob'].toString()) : null,
       element: data['element'],
       phase: data['phase']?.toString(),
       merits: data['merits'] ?? 0,
+      cashBalance: (data['cashBalance'] ?? 0.0).toDouble(),
       trainingRecords: Map<String, dynamic>.from(data['trainingRecords'] ?? {}),
       uniformSizes: Map<String, dynamic>.from(data['uniformSizes'] ?? {}),
       issuedKit: List<dynamic>.from(data['issuedKit'] ?? []),
@@ -97,6 +125,9 @@ class UserData {
       provincialHealthNumber: data['provincialHealthNumber'],
       privateInsuranceProvider: data['privateInsuranceProvider'],
       onboardingChecklist: data['onboardingChecklist'],
+      enrolmentDate: enrolmentDate,
+      lastPromotionDate: lastPromotionDate,
+      tags: List<String>.from(data['tags'] ?? []),
     );
   }
 
@@ -112,13 +143,16 @@ class UserData {
       'permissions': permissions,
       'isSupportAdmin': isSupportAdmin,
       'isPendingAssignment': isPendingAssignment,
+      'isArchived': isArchived,
       'dob': dob?.toIso8601String(),
       'element': element,
       'phase': phase,
       'merits': merits,
+      'cashBalance': cashBalance,
       'trainingRecords': trainingRecords,
       'uniformSizes': uniformSizes,
       'issuedKit': issuedKit,
+      'currentInventory': issuedKit, // Mirroring for compatibility if needed
       'cin': cin,
       'phone': phone,
       'personalEmail': personalEmail,
@@ -128,6 +162,9 @@ class UserData {
       'provincialHealthNumber': provincialHealthNumber,
       'privateInsuranceProvider': privateInsuranceProvider,
       'onboardingChecklist': onboardingChecklist,
+      'enrolmentDate': enrolmentDate?.toIso8601String(),
+      'lastPromotionDate': lastPromotionDate?.toIso8601String(),
+      'tags': tags,
     };
   }
 }
