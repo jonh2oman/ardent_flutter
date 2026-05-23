@@ -54,6 +54,13 @@ class _CadetDetailScreenState extends State<CadetDetailScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(cadet.name.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.0)),
+        actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.edit),
+            onPressed: () => _showEditCadetDialog(context, auth),
+            tooltip: 'Edit Profile',
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -240,6 +247,252 @@ class _CadetDetailScreenState extends State<CadetDetailScreen> {
         ),
       ),
     );
+  }
+
+  void _showEditCadetDialog(BuildContext context, AuthProvider auth) {
+    int currentStep = 0;
+    
+    // Basic Info Controllers
+    final firstName = TextEditingController(text: cadet.firstName);
+    final lastName = TextEditingController(text: cadet.lastName);
+    final cin = TextEditingController(text: cadet.cin);
+    String selectedRank = cadet.rank ?? 'Ordinary Cadet';
+    String selectedPhase = cadet.phase ?? '1';
+    DateTime selectedDob = cadet.dob ?? DateTime.now().subtract(const Duration(days: 365 * 12));
+    DateTime selectedEnrolment = cadet.enrolmentDate ?? DateTime.now();
+
+    // Contact Controllers
+    final phone = TextEditingController(text: cadet.phone);
+    final personalEmail = TextEditingController(text: cadet.personalEmail);
+    final street = TextEditingController(text: cadet.address?['street']);
+    final city = TextEditingController(text: cadet.address?['city']);
+    final province = TextEditingController(text: cadet.address?['province'] ?? 'ON');
+    final postalCode = TextEditingController(text: cadet.address?['postalCode']);
+
+    // Parent Info
+    final parent1Name = TextEditingController(text: (cadet.parents != null && cadet.parents!.isNotEmpty) ? cadet.parents![0]['name'] : '');
+    final parent1Rel = TextEditingController(text: (cadet.parents != null && cadet.parents!.isNotEmpty) ? cadet.parents![0]['relationship'] : '');
+    final parent1Phone = TextEditingController(text: (cadet.parents != null && cadet.parents!.isNotEmpty) ? cadet.parents![0]['phone'] : '');
+    final parent2Name = TextEditingController(text: (cadet.parents != null && cadet.parents!.length > 1) ? cadet.parents![1]['name'] : '');
+    final parent2Rel = TextEditingController(text: (cadet.parents != null && cadet.parents!.length > 1) ? cadet.parents![1]['relationship'] : '');
+    final parent2Phone = TextEditingController(text: (cadet.parents != null && cadet.parents!.length > 1) ? cadet.parents![1]['phone'] : '');
+
+    // Medical Info
+    final healthNumber = TextEditingController(text: cadet.provincialHealthNumber);
+    final insurance = TextEditingController(text: cadet.privateInsuranceProvider);
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          List<Step> steps = [
+            Step(
+              title: const Text('Basic Info'),
+              isActive: currentStep >= 0,
+              content: Column(
+                children: [
+                  TextField(controller: firstName, decoration: const InputDecoration(labelText: 'First Name')),
+                  TextField(controller: lastName, decoration: const InputDecoration(labelText: 'Last Name')),
+                  TextField(controller: cin, decoration: const InputDecoration(labelText: 'CIN (Optional)')),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: ['Ordinary Cadet', 'Able Cadet', 'Leading Cadet', 'Master Cadet', 'Petty Officer 2nd Class', 'Petty Officer 1st Class', 'Chief Petty Officer 2nd Class', 'Chief Petty Officer 1st Class', 'OC', 'AC', 'LC', 'MC', 'PO2', 'PO1', 'CPO2', 'CPO1'].contains(selectedRank) ? selectedRank : null,
+                    items: ['Ordinary Cadet', 'Able Cadet', 'Leading Cadet', 'Master Cadet', 'Petty Officer 2nd Class', 'Petty Officer 1st Class', 'Chief Petty Officer 2nd Class', 'Chief Petty Officer 1st Class', 'OC', 'AC', 'LC', 'MC', 'PO2', 'PO1', 'CPO2', 'CPO1']
+                        .map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                    onChanged: (v) => setDialogState(() => selectedRank = v!),
+                    decoration: const InputDecoration(labelText: 'Rank'),
+                  ),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    title: const Text('Date of Birth'),
+                    subtitle: Text(DateFormat('MMM d, yyyy').format(selectedDob)),
+                    onTap: () async {
+                      final d = await showDatePicker(context: context, initialDate: selectedDob, firstDate: DateTime(1900), lastDate: DateTime.now());
+                      if (d != null) setDialogState(() => selectedDob = d);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  ListTile(
+                    title: const Text('Enrolment Date'),
+                    subtitle: Text(DateFormat('MMM d, yyyy').format(selectedEnrolment)),
+                    onTap: () async {
+                      final d = await showDatePicker(context: context, initialDate: selectedEnrolment, firstDate: DateTime(1900), lastDate: DateTime.now());
+                      if (d != null) setDialogState(() => selectedEnrolment = d);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            Step(
+              title: const Text('Contact'),
+              isActive: currentStep >= 1,
+              content: Column(
+                children: [
+                  TextField(controller: phone, decoration: const InputDecoration(labelText: 'Phone')),
+                  TextField(controller: personalEmail, decoration: const InputDecoration(labelText: 'Personal Email')),
+                  TextField(controller: street, decoration: const InputDecoration(labelText: 'Street Address')),
+                  Row(
+                    children: [
+                      Expanded(child: TextField(controller: city, decoration: const InputDecoration(labelText: 'City'))),
+                      const SizedBox(width: 8),
+                      Expanded(child: TextField(controller: postalCode, decoration: const InputDecoration(labelText: 'Postal Code'))),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Step(
+              title: const Text('Guardians'),
+              isActive: currentStep >= 2,
+              content: Column(
+                children: [
+                  Text('Guardian 1', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
+                  TextField(controller: parent1Name, decoration: const InputDecoration(labelText: 'Full Name')),
+                  TextField(controller: parent1Rel, decoration: const InputDecoration(labelText: 'Relationship')),
+                  TextField(controller: parent1Phone, decoration: const InputDecoration(labelText: 'Phone')),
+                  const SizedBox(height: 16),
+                  Text('Guardian 2 (Optional)', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
+                  TextField(controller: parent2Name, decoration: const InputDecoration(labelText: 'Full Name')),
+                  TextField(controller: parent2Phone, decoration: const InputDecoration(labelText: 'Phone')),
+                ],
+              ),
+            ),
+            Step(
+              title: const Text('Medical'),
+              isActive: currentStep >= 3,
+              content: Column(
+                children: [
+                  TextField(controller: healthNumber, decoration: const InputDecoration(labelText: 'Provincial Health #')),
+                  TextField(controller: insurance, decoration: const InputDecoration(labelText: 'Private Insurance Provider')),
+                ],
+              ),
+            ),
+          ];
+
+          return AlertDialog(
+            title: const Text('Edit Cadet Profile', style: TextStyle(fontWeight: FontWeight.w900)),
+            content: SizedBox(
+              width: 500,
+              child: Stepper(
+                type: StepperType.vertical,
+                currentStep: currentStep,
+                onStepContinue: () {
+                  if (currentStep < steps.length - 1) {
+                    setDialogState(() => currentStep++);
+                  } else {
+                    _saveEditedCadet(context, auth, {
+                      'firstName': firstName.text,
+                      'lastName': lastName.text,
+                      'cin': cin.text,
+                      'rank': selectedRank,
+                      'phase': selectedPhase,
+                      'dob': selectedDob.toIso8601String(),
+                      'enrolmentDate': selectedEnrolment.toIso8601String(),
+                      'phone': phone.text,
+                      'personalEmail': personalEmail.text,
+                      'address': {
+                        'street': street.text,
+                        'city': city.text,
+                        'province': province.text,
+                        'postalCode': postalCode.text,
+                      },
+                      'parents': [
+                        {'name': parent1Name.text, 'relationship': parent1Rel.text, 'phone': parent1Phone.text},
+                        if (parent2Name.text.isNotEmpty) {'name': parent2Name.text, 'phone': parent2Phone.text},
+                      ],
+                      'provincialHealthNumber': healthNumber.text,
+                      'privateInsuranceProvider': insurance.text,
+                    });
+                  }
+                },
+                onStepCancel: () {
+                  if (currentStep > 0) setDialogState(() => currentStep--);
+                },
+                steps: steps,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _saveEditedCadet(BuildContext context, AuthProvider auth, Map<String, dynamic> data) async {
+    if ((data['firstName'] ?? '').toString().trim().isEmpty || 
+        (data['lastName'] ?? '').toString().trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: First and Last Name are required.'), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+
+    final corpsId = auth.userData?.corpsId;
+    if (corpsId == null) return;
+
+    final corpsRef = FirebaseFirestore.instance.collection('corps').doc(corpsId);
+    final corpsDoc = await corpsRef.get();
+    if (!corpsDoc.exists) return;
+
+    final List<dynamic> cadets = List.from(corpsDoc.data()?['settings']?['cadets'] ?? []);
+    final index = cadets.indexWhere((c) => (c['uid'] ?? c['id'] ?? '').toString() == cadet.id);
+    
+    if (index != -1) {
+      final updatedCadetMap = Map<String, dynamic>.from(cadets[index]);
+      
+      updatedCadetMap['firstName'] = data['firstName'];
+      updatedCadetMap['lastName'] = data['lastName'];
+      updatedCadetMap['cin'] = data['cin'];
+      updatedCadetMap['rank'] = data['rank'];
+      updatedCadetMap['phase'] = data['phase'];
+      updatedCadetMap['dob'] = data['dob'];
+      updatedCadetMap['enrolmentDate'] = data['enrolmentDate'];
+      updatedCadetMap['phone'] = data['phone'];
+      updatedCadetMap['personalEmail'] = data['personalEmail'];
+      updatedCadetMap['address'] = data['address'];
+      updatedCadetMap['parents'] = data['parents'];
+      updatedCadetMap['provincialHealthNumber'] = data['provincialHealthNumber'];
+      updatedCadetMap['privateInsuranceProvider'] = data['privateInsuranceProvider'];
+
+      cadets[index] = updatedCadetMap;
+      
+      await corpsRef.update({
+        'settings.cadets': cadets,
+      });
+
+      if (context.mounted) {
+        setState(() {
+          cadet = UserData(
+            id: cadet.id,
+            email: cadet.email,
+            corpsId: cadet.corpsId,
+            firstName: data['firstName'],
+            lastName: data['lastName'],
+            rank: data['rank'],
+            position: cadet.position,
+            phase: data['phase'],
+            cin: data['cin'],
+            merits: cadet.merits,
+            cashBalance: cadet.cashBalance,
+            isArchived: cadet.isArchived,
+            dob: DateTime.parse(data['dob']),
+            phone: data['phone'],
+            personalEmail: data['personalEmail'],
+            cadetEmail: cadet.cadetEmail,
+            address: data['address'],
+            parents: List<Map<String, dynamic>>.from(data['parents']),
+            provincialHealthNumber: data['provincialHealthNumber'],
+            privateInsuranceProvider: data['privateInsuranceProvider'],
+            uniformSizes: cadet.uniformSizes,
+            issuedKit: cadet.issuedKit,
+            trainingRecords: cadet.trainingRecords,
+            enrolmentDate: DateTime.parse(data['enrolmentDate']),
+            tags: cadet.tags,
+          );
+        });
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated successfully!')));
+      }
+    }
   }
 
   Future<void> _confirmSOS(BuildContext context, AuthProvider auth) async {
