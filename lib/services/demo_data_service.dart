@@ -60,6 +60,13 @@ class DemoDataService {
   static List<Map<String, dynamic>> _generateCadets(int count) {
     List<Map<String, dynamic>> cadets = [];
     for (int i = 0; i < count; i++) {
+      // DOB between 12 and 18 years ago
+      final ageInDays = 12 * 365 + _random.nextInt(6 * 365);
+      final dob = DateTime.now().subtract(Duration(days: ageInDays)).toIso8601String();
+      
+      // CIN: e.g. 1234567
+      final cin = (1000000 + _random.nextInt(9000000)).toString();
+
       cadets.add({
         'id': _uuid.v4(),
         'firstName': _firstNames[_random.nextInt(_firstNames.length)],
@@ -67,6 +74,8 @@ class DemoDataService {
         'rank': _ranks[_random.nextInt(_ranks.length)],
         'division': _divisions[_random.nextInt(_divisions.length)],
         'status': 'Active',
+        'dob': dob,
+        'cin': cin,
       });
     }
     return cadets;
