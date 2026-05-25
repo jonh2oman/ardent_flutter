@@ -14,11 +14,17 @@ class FundraisingCampaign {
   });
 
   factory FundraisingCampaign.fromMap(String id, Map<String, dynamic> data) {
+    DateTime parseDate(dynamic val) {
+      if (val is Timestamp) return val.toDate();
+      if (val is String) return DateTime.tryParse(val) ?? DateTime.now();
+      return DateTime.now();
+    }
+
     return FundraisingCampaign(
       id: id,
       name: data['name'] ?? '',
-      startDate: (data['startDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      endDate: (data['endDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      startDate: parseDate(data['startDate']),
+      endDate: parseDate(data['endDate']),
     );
   }
 
@@ -78,12 +84,18 @@ class FundraisingAssignment {
   });
 
   factory FundraisingAssignment.fromMap(String id, Map<String, dynamic> data) {
+    DateTime parseDate(dynamic val) {
+      if (val is Timestamp) return val.toDate();
+      if (val is String) return DateTime.tryParse(val) ?? DateTime.now();
+      return DateTime.now();
+    }
+
     return FundraisingAssignment(
       id: id,
       cadetId: data['cadetId'] ?? '',
       productId: data['productId'] ?? '',
       quantity: data['quantity'] ?? 0,
-      timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      timestamp: parseDate(data['timestamp'] ?? data['assignedDate']),
     );
   }
 
@@ -111,11 +123,17 @@ class FundraisingReturn {
   });
 
   factory FundraisingReturn.fromMap(String id, Map<String, dynamic> data) {
+    DateTime parseDate(dynamic val) {
+      if (val is Timestamp) return val.toDate();
+      if (val is String) return DateTime.tryParse(val) ?? DateTime.now();
+      return DateTime.now();
+    }
+
     return FundraisingReturn(
       id: id,
       cadetId: data['cadetId'] ?? '',
       amountReturned: (data['amountReturned'] ?? 0.0).toDouble(),
-      timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      timestamp: parseDate(data['timestamp'] ?? data['returnDate']),
     );
   }
 
