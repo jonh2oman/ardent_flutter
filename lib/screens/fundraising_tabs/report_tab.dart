@@ -20,71 +20,70 @@ class ReportTab extends StatefulWidget {
 class _ReportTabState extends State<ReportTab> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   String? _selectedCampaignId;
+  String _campaignName = 'Master Report';
 
-  Future<void> _generatePdf() async {
-    if (_selectedCampaignId == null) return;
-    
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Generating PDF...')));
+  Future<List<Map<String, dynamic>>> _fetchMasterReportData() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final cadetsList = List<dynamic>.from(auth.corpsData?.settings?['cadets'] ?? []);
+    final cadetMap = {for (var c in cadetsList) (c['uid'] ?? c['id'] ?? '').toString(): c as Map<String, dynamic>};
 
-    try {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final cadetsList = List<dynamic>.from(auth.corpsData?.settings?['cadets'] ?? []);
-      final cadetMap = {for (var c in cadetsList) (c['uid'] ?? c['id'] ?? '').toString(): c as Map<String, dynamic>};
+    final snap = await _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').get();
+    final campaignDocs = snap.docs;
 
-      final productSnap = await _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(_selectedCampaignId).collection('products').get();
-      final productMap = {for (var doc in productSnap.docs) doc.id: doc.data() as Map<String, dynamic>};
+    Map<String, double> assignedValues = {};
+    Map<String, double> returnedValues = {};
 
-      final assignSnap = await _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(_selectedCampaignId).collection('assignments').get();
-      final returnSnap = await _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(_selectedCampaignId).collection('returns').get();
+    for (var cDoc in campaignDocs) {
+      final cId = cDoc.id;
+      final pSnap = await _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(cId).collection('products').get();
+      final productMap = {for (var doc in pSnap.docs) doc.id: doc.data() as Map<String, dynamic>};
 
-      // Aggregate Assignments
-      Map<String, double> assignedValues = {};
-      for (var doc in assignSnap.docs) {
+      final aSnap = await _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(cId).collection('assignments').get();
+      final rSnap = await _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(cId).collection('returns').get();
+
+      for (var doc in aSnap.docs) {
         final a = FundraisingAssignment.fromMap(doc.id, doc.data() as Map<String, dynamic>);
         final pData = productMap[a.productId];
         final price = pData != null ? (pData['price'] ?? 0.0).toDouble() : 0.0;
-        final value = a.quantity * price;
-        assignedValues[a.cadetId] = (assignedValues[a.cadetId] ?? 0.0) + value;
+        assignedValues[a.cadetId] = (assignedValues[a.cadetId] ?? 0.0) + (a.quantity * price);
       }
 
-      // Aggregate Returns
-      Map<String, double> returnedValues = {};
-      for (var doc in returnSnap.docs) {
+      for (var doc in rSnap.docs) {
         final r = FundraisingReturn.fromMap(doc.id, doc.data() as Map<String, dynamic>);
         returnedValues[r.cadetId] = (returnedValues[r.cadetId] ?? 0.0) + r.amountReturned;
       }
+    }
 
-      // Combine into list
-      List<Map<String, dynamic>> rows = [];
-      double grandTotalAssigned = 0;
-      double grandTotalReturned = 0;
+    List<Map<String, dynamic>> rows = [];
+    for (var cadetId in assignedValues.keys) {
+      final assigned = assignedValues[cadetId] ?? 0.0;
+      final returned = returnedValues[cadetId] ?? 0.0;
+      final cData = cadetMap[cadetId];
+      final name = cData != null ? '${cData['rank'] ?? ''} ${cData['lastName']}, ${cData['firstName']}' : 'Unknown';
+      
+      rows.add({
+        'name': name,
+        'assigned': assigned,
+        'returned': returned,
+        'progress': assigned > 0 ? (returned / assigned).clamp(0.0, 1.0) : 0.0,
+      });
+    }
 
-      for (var cadetId in assignedValues.keys) {
-        final assigned = assignedValues[cadetId] ?? 0.0;
-        final returned = returnedValues[cadetId] ?? 0.0;
-        final cData = cadetMap[cadetId];
-        final name = cData != null ? '${cData['rank'] ?? ''} ${cData['lastName']}, ${cData['firstName']}' : 'Unknown';
-        
-        rows.add({
-          'name': name,
-          'assigned': assigned,
-          'returned': returned,
-          'progress': assigned > 0 ? (returned / assigned).clamp(0.0, 1.0) : 0.0,
-        });
+    rows.sort((a, b) => b['progress'].compareTo(a['progress']));
+    return rows;
+  }
 
-        grandTotalAssigned += assigned;
-        grandTotalReturned += returned;
-      }
+  Future<void> _generatePdf(List<Map<String, dynamic>> rows, double grandTotalAssigned, double grandTotalReturned) async {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Generating PDF...')));
 
-      rows.sort((a, b) => b['progress'].compareTo(a['progress']));
-
+    try {
       final pdf = pw.Document();
 
       pdf.addPage(
         pw.MultiPage(
           build: (pw.Context context) {
             return [
-              pw.Text('Fundraising Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              pw.Text('Fundraising Report: $_campaignName', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
               pw.SizedBox(height: 20),
               pw.Table(
                 border: pw.TableBorder.all(color: PdfColors.grey300),
@@ -126,7 +125,7 @@ class _ReportTabState extends State<ReportTab> {
 
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => pdf.save(),
-        name: 'Fundraising_Report.pdf',
+        name: '${_campaignName.replaceAll(' ', '_')}_Report.pdf',
       );
 
     } catch (e) {
@@ -161,7 +160,10 @@ class _ReportTabState extends State<ReportTab> {
 
         if (_selectedCampaignId == null && campaigns.isNotEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            setState(() => _selectedCampaignId = campaigns.first.id);
+            setState(() {
+              _selectedCampaignId = 'ALL';
+              _campaignName = 'Master Report (All Campaigns)';
+            });
           });
         }
 
@@ -179,12 +181,25 @@ class _ReportTabState extends State<ReportTab> {
               style: const TextStyle(color: Colors.white),
               isExpanded: true,
               hint: const Text('Select Campaign', style: TextStyle(color: Colors.white54)),
-              items: campaigns.map((doc) {
-                final c = FundraisingCampaign.fromMap(doc.id, doc.data() as Map<String, dynamic>);
-                return DropdownMenuItem(value: c.id, child: Text(c.name));
-              }).toList(),
+              items: [
+                const DropdownMenuItem(value: 'ALL', child: Text('Master Report (All Campaigns)', style: TextStyle(fontWeight: FontWeight.bold))),
+                ...campaigns.map((doc) {
+                  final c = FundraisingCampaign.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+                  return DropdownMenuItem(value: c.id, child: Text(c.name));
+                }),
+              ],
               onChanged: (val) {
-                setState(() => _selectedCampaignId = val);
+                if (val != null) {
+                  setState(() {
+                    _selectedCampaignId = val;
+                    if (val == 'ALL') {
+                      _campaignName = 'Master Report (All Campaigns)';
+                    } else {
+                      final c = campaigns.firstWhere((doc) => doc.id == val);
+                      _campaignName = FundraisingCampaign.fromMap(c.id, c.data() as Map<String, dynamic>).name;
+                    }
+                  });
+                }
               },
             ),
           ),
@@ -194,6 +209,103 @@ class _ReportTabState extends State<ReportTab> {
   }
 
   Widget _buildReportCard() {
+    if (_selectedCampaignId == 'ALL') {
+      return FutureBuilder<List<Map<String, dynamic>>>(
+        future: _fetchMasterReportData(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          if (snapshot.hasError) return Center(child: Text('Error loading master report: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent)));
+          
+          final rows = snapshot.data ?? [];
+          double grandTotalAssigned = 0;
+          double grandTotalReturned = 0;
+          for (var r in rows) {
+            grandTotalAssigned += r['assigned'];
+            grandTotalReturned += r['returned'];
+          }
+
+          return _buildReportUI(rows, grandTotalAssigned, grandTotalReturned);
+        },
+      );
+    }
+
+    // For a single campaign, keep the real-time streams
+    return Builder(
+      builder: (context) {
+        final auth = Provider.of<AuthProvider>(context, listen: false);
+        final cadetsList = List<dynamic>.from(auth.corpsData?.settings?['cadets'] ?? []);
+        final cadetMap = {for (var c in cadetsList) (c['uid'] ?? c['id'] ?? '').toString(): c as Map<String, dynamic>};
+
+        return StreamBuilder<QuerySnapshot>(
+          stream: _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(_selectedCampaignId).collection('products').snapshots(),
+          builder: (context, productSnap) {
+            if (!productSnap.hasData) return const Center(child: CircularProgressIndicator());
+            final productDocs = productSnap.data!.docs;
+            final productMap = {for (var doc in productDocs) doc.id: doc.data() as Map<String, dynamic>};
+
+            return StreamBuilder<QuerySnapshot>(
+              stream: _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(_selectedCampaignId).collection('assignments').snapshots(),
+              builder: (context, assignSnap) {
+                if (!assignSnap.hasData) return const Center(child: CircularProgressIndicator());
+                
+                return StreamBuilder<QuerySnapshot>(
+                  stream: _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(_selectedCampaignId).collection('returns').snapshots(),
+                  builder: (context, returnSnap) {
+                    if (!returnSnap.hasData) return const Center(child: CircularProgressIndicator());
+                    
+                    // Aggregate Assignments
+                    Map<String, double> assignedValues = {};
+                    for (var doc in assignSnap.data!.docs) {
+                      final a = FundraisingAssignment.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+                      final pData = productMap[a.productId];
+                      final price = pData != null ? (pData['price'] ?? 0.0).toDouble() : 0.0;
+                      final value = a.quantity * price;
+                      assignedValues[a.cadetId] = (assignedValues[a.cadetId] ?? 0.0) + value;
+                    }
+
+                    // Aggregate Returns
+                    Map<String, double> returnedValues = {};
+                    for (var doc in returnSnap.data!.docs) {
+                      final r = FundraisingReturn.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+                      returnedValues[r.cadetId] = (returnedValues[r.cadetId] ?? 0.0) + r.amountReturned;
+                    }
+
+                    // Combine into list
+                    List<Map<String, dynamic>> rows = [];
+                    double grandTotalAssigned = 0;
+                    double grandTotalReturned = 0;
+
+                    for (var cadetId in assignedValues.keys) {
+                      final assigned = assignedValues[cadetId] ?? 0.0;
+                      final returned = returnedValues[cadetId] ?? 0.0;
+                      final cData = cadetMap[cadetId];
+                      final name = cData != null ? '${cData['rank'] ?? ''} ${cData['lastName']}, ${cData['firstName']}' : 'Unknown';
+                      
+                      rows.add({
+                        'name': name,
+                        'assigned': assigned,
+                        'returned': returned,
+                        'progress': assigned > 0 ? (returned / assigned).clamp(0.0, 1.0) : 0.0,
+                      });
+
+                      grandTotalAssigned += assigned;
+                      grandTotalReturned += returned;
+                    }
+
+                    rows.sort((a, b) => b['progress'].compareTo(a['progress']));
+
+                    return _buildReportUI(rows, grandTotalAssigned, grandTotalReturned);
+                  }
+                );
+              }
+            );
+          }
+        );
+      }
+    );
+  }
+
+  Widget _buildReportUI(List<Map<String, dynamic>> rows, double grandTotalAssigned, double grandTotalReturned) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -209,14 +321,14 @@ class _ReportTabState extends State<ReportTab> {
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text('Fundraising Report', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 4),
-                  Text('Leaderboard and summary of fundraising efforts.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                children: [
+                  Text('Fundraising Report: $_campaignName', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  const Text('Leaderboard and summary of fundraising efforts.', style: TextStyle(color: Colors.white54, fontSize: 12)),
                 ],
               ),
               OutlinedButton.icon(
-                onPressed: _generatePdf,
+                onPressed: () => _generatePdf(rows, grandTotalAssigned, grandTotalReturned),
                 icon: const Icon(LucideIcons.downloadCloud, size: 16),
                 label: const Text('Generate PDF'),
                 style: OutlinedButton.styleFrom(
@@ -229,133 +341,60 @@ class _ReportTabState extends State<ReportTab> {
           const SizedBox(height: 24),
           
           Expanded(
-            child: Builder(
-              builder: (context) {
-                final auth = Provider.of<AuthProvider>(context, listen: false);
-                final cadetsList = List<dynamic>.from(auth.corpsData?.settings?['cadets'] ?? []);
-                final cadetMap = {for (var c in cadetsList) (c['uid'] ?? c['id'] ?? '').toString(): c as Map<String, dynamic>};
-
-                return StreamBuilder<QuerySnapshot>(
-                  stream: _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(_selectedCampaignId).collection('products').snapshots(),
-                  builder: (context, productSnap) {
-                    if (!productSnap.hasData) return const Center(child: CircularProgressIndicator());
-                    final productDocs = productSnap.data!.docs;
-                    final productMap = {for (var doc in productDocs) doc.id: doc.data() as Map<String, dynamic>};
-
-                    return StreamBuilder<QuerySnapshot>(
-                      stream: _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(_selectedCampaignId).collection('assignments').snapshots(),
-                      builder: (context, assignSnap) {
-                        if (!assignSnap.hasData) return const Center(child: CircularProgressIndicator());
-                        
-                        return StreamBuilder<QuerySnapshot>(
-                          stream: _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(_selectedCampaignId).collection('returns').snapshots(),
-                          builder: (context, returnSnap) {
-                            if (!returnSnap.hasData) return const Center(child: CircularProgressIndicator());
-                            
-                            // Aggregate Assignments
-                            Map<String, double> assignedValues = {};
-                            for (var doc in assignSnap.data!.docs) {
-                              final a = FundraisingAssignment.fromMap(doc.id, doc.data() as Map<String, dynamic>);
-                              final pData = productMap[a.productId];
-                              final price = pData != null ? (pData['price'] ?? 0.0).toDouble() : 0.0;
-                              final value = a.quantity * price;
-                              assignedValues[a.cadetId] = (assignedValues[a.cadetId] ?? 0.0) + value;
-                            }
-
-                            // Aggregate Returns
-                            Map<String, double> returnedValues = {};
-                            for (var doc in returnSnap.data!.docs) {
-                              final r = FundraisingReturn.fromMap(doc.id, doc.data() as Map<String, dynamic>);
-                              returnedValues[r.cadetId] = (returnedValues[r.cadetId] ?? 0.0) + r.amountReturned;
-                            }
-
-                            // Combine into list
-                            List<Map<String, dynamic>> rows = [];
-                            double grandTotalAssigned = 0;
-                            double grandTotalReturned = 0;
-
-                            for (var cadetId in assignedValues.keys) {
-                              final assigned = assignedValues[cadetId] ?? 0.0;
-                              final returned = returnedValues[cadetId] ?? 0.0;
-                              final cData = cadetMap[cadetId];
-                              final name = cData != null ? '${cData['rank'] ?? ''} ${cData['lastName']}, ${cData['firstName']}' : 'Unknown';
-                              
-                              rows.add({
-                                'name': name,
-                                'assigned': assigned,
-                                'returned': returned,
-                                'progress': assigned > 0 ? (returned / assigned).clamp(0.0, 1.0) : 0.0,
-                              });
-
-                              grandTotalAssigned += assigned;
-                              grandTotalReturned += returned;
-                            }
-
-                            // Sort by progress descending
-                            rows.sort((a, b) => b['progress'].compareTo(a['progress']));
-
-                            return ListView(
-                              children: [
-                                const Row(
-                                  children: [
-                                    Expanded(flex: 3, child: Text('Cadet', style: TextStyle(color: Colors.white54, fontSize: 12))),
-                                    Expanded(flex: 2, child: Text('Value Assigned', style: TextStyle(color: Colors.white54, fontSize: 12))),
-                                    Expanded(flex: 2, child: Text('Money Returned', style: TextStyle(color: Colors.white54, fontSize: 12))),
-                                    Expanded(flex: 3, child: Text('Return Progress', style: TextStyle(color: Colors.white54, fontSize: 12))),
-                                  ],
+            child: ListView(
+              children: [
+                const Row(
+                  children: [
+                    Expanded(flex: 3, child: Text('Cadet', style: TextStyle(color: Colors.white54, fontSize: 12))),
+                    Expanded(flex: 2, child: Text('Value Assigned', style: TextStyle(color: Colors.white54, fontSize: 12))),
+                    Expanded(flex: 2, child: Text('Money Returned', style: TextStyle(color: Colors.white54, fontSize: 12))),
+                    Expanded(flex: 3, child: Text('Return Progress', style: TextStyle(color: Colors.white54, fontSize: 12))),
+                  ],
+                ),
+                const Divider(color: Colors.white24, height: 24),
+                ...rows.map((r) {
+                  final progressPct = (r['progress'] * 100).toInt();
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Row(
+                      children: [
+                        Expanded(flex: 3, child: Text(r['name'], style: const TextStyle(color: Colors.white, fontSize: 13))),
+                        Expanded(flex: 2, child: Text('\$${r['assigned'].toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 13))),
+                        Expanded(flex: 2, child: Text('\$${r['returned'].toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 13))),
+                        Expanded(
+                          flex: 3,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: LinearProgressIndicator(
+                                  value: r['progress'],
+                                  backgroundColor: Colors.white.withOpacity(0.1),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    progressPct >= 100 ? Colors.green : const Color(0xFF4A6B9C),
+                                  ),
+                                  minHeight: 6,
+                                  borderRadius: BorderRadius.circular(3),
                                 ),
-                                const Divider(color: Colors.white24, height: 24),
-                                ...rows.map((r) {
-                                  final progressPct = (r['progress'] * 100).toInt();
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    child: Row(
-                                      children: [
-                                        Expanded(flex: 3, child: Text(r['name'], style: const TextStyle(color: Colors.white, fontSize: 13))),
-                                        Expanded(flex: 2, child: Text('\$${r['assigned'].toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 13))),
-                                        Expanded(flex: 2, child: Text('\$${r['returned'].toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 13))),
-                                        Expanded(
-                                          flex: 3,
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: LinearProgressIndicator(
-                                                  value: r['progress'],
-                                                  backgroundColor: Colors.white.withOpacity(0.1),
-                                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                                    progressPct >= 100 ? Colors.green : const Color(0xFF4A6B9C),
-                                                  ),
-                                                  minHeight: 6,
-                                                  borderRadius: BorderRadius.circular(3),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text('$progressPct%', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                                const Divider(color: Colors.white24, height: 24),
-                                Row(
-                                  children: [
-                                    const Expanded(flex: 3, child: Text('Totals', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold))),
-                                    Expanded(flex: 2, child: Text('\$${grandTotalAssigned.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold))),
-                                    Expanded(flex: 2, child: Text('\$${grandTotalReturned.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold))),
-                                    const Expanded(flex: 3, child: SizedBox.shrink()),
-                                  ],
-                                ),
-                              ],
-                            );
-                          }
-                        );
-                      }
-                    );
-                  }
-                );
-              }
+                              ),
+                              const SizedBox(width: 8),
+                              Text('$progressPct%', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                const Divider(color: Colors.white24, height: 24),
+                Row(
+                  children: [
+                    const Expanded(flex: 3, child: Text('Totals', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold))),
+                    Expanded(flex: 2, child: Text('\$${grandTotalAssigned.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold))),
+                    Expanded(flex: 2, child: Text('\$${grandTotalReturned.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold))),
+                    const Expanded(flex: 3, child: SizedBox.shrink()),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
