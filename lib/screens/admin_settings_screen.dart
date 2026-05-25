@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -183,6 +184,7 @@ class _UnitConfigCard extends StatefulWidget {
 
 class _UnitConfigCardState extends State<_UnitConfigCard> {
   bool _isLoadingDemo = false;
+  bool _isGeneratingToken = false;
   late TextEditingController _nameController;
   late TextEditingController _designationController;
   late TextEditingController _rankController;
@@ -519,55 +521,176 @@ class _UnitConfigCardState extends State<_UnitConfigCard> {
         const SizedBox(height: 12),
         const Text('Load realistic sample data (Cadets, Uniforms, Campaigns) for testing. WARNING: This will permanently delete existing data in those modules.', style: TextStyle(fontSize: 12, color: Colors.white54)),
         const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: _isLoadingDemo ? null : () => _confirmLoadDemoData(context),
-          icon: _isLoadingDemo 
-            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-            : const Icon(LucideIcons.refreshCw, size: 16),
-          label: Text(_isLoadingDemo ? 'LOADING...' : 'LOAD DEMO DATA'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.orangeAccent,
-            side: BorderSide(color: Colors.orangeAccent.withOpacity(0.5)),
-          ),
+        Row(
+          children: [
+            OutlinedButton.icon(
+              onPressed: _isGeneratingToken ? null : () => _generateDemoToken(context),
+              icon: _isGeneratingToken 
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(LucideIcons.key, size: 16),
+              label: Text(_isGeneratingToken ? 'GENERATING...' : 'GENERATE TOKEN'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: BorderSide(color: Colors.white.withOpacity(0.2)),
+              ),
+            ),
+            const SizedBox(width: 16),
+            OutlinedButton.icon(
+              onPressed: _isLoadingDemo ? null : () => _confirmLoadDemoData(context),
+              icon: _isLoadingDemo 
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(LucideIcons.refreshCw, size: 16),
+              label: Text(_isLoadingDemo ? 'LOADING...' : 'LOAD DEMO DATA'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.orangeAccent,
+                side: BorderSide(color: Colors.orangeAccent.withOpacity(0.5)),
+              ),
+            ),
+          ],
         ),
       ],
     );
+  }
+
+  Future<void> _generateDemoToken(BuildContext context) async {
+    final corpsId = widget.auth.userData?.corpsId;
+    if (corpsId == null) return;
+
+    setState(() => _isGeneratingToken = true);
+    try {
+      final token = (100000 + Random().nextInt(900000)).toString(); // 6 digit code
+      
+      await FirebaseFirestore.instance.collection('demo_tokens').add({
+        'token': token,
+        'corpsId': corpsId,
+        'createdBy': widget.auth.userData?.id,
+        'createdAt': FieldValue.serverTimestamp(),
+        'expiresAt': DateTime.now().add(const Duration(minutes: 15)).toIso8601String(),
+      });
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Authorization Token Generated'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Use this token to authorize the Demo Data loading. It expires in 15 minutes.'),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: Text(
+                    token,
+                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 8.0, color: Colors.orangeAccent),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CLOSE')),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to generate token: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isGeneratingToken = false);
+    }
   }
 
   Future<void> _confirmLoadDemoData(BuildContext context) async {
     final corpsId = widget.auth.userData?.corpsId;
     if (corpsId == null) return;
 
-    final confirm = await showDialog<bool>(
+    final tokenController = TextEditingController();
+
+    final confirm = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Load Demo Data?'),
-        content: const Text('This will wipe your current cadets, uniform inventory, and fundraising data, and replace it with dummy data. This cannot be undone. Proceed?'),
+        title: const Text('Authorize Demo Data Load'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('This will wipe your current cadets, uniform inventory, and fundraising data, replacing it with dummy data. This cannot be undone.', style: TextStyle(color: Colors.redAccent)),
+            const SizedBox(height: 16),
+            const Text('Please enter your 6-digit authorization token:'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: tokenController,
+              decoration: const InputDecoration(
+                hintText: 'e.g. 123456',
+                border: OutlineInputBorder(),
+                filled: true,
+                fillColor: Colors.black26,
+              ),
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+            ),
+          ],
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+          TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('CANCEL')),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, true), 
+            onPressed: () => Navigator.pop(ctx, tokenController.text.trim()), 
             style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-            child: const Text('PROCEED'),
+            child: const Text('VERIFY & PROCEED'),
           ),
         ],
       ),
     );
 
-    if (confirm == true) {
+    if (confirm != null && confirm.length == 6) {
       setState(() => _isLoadingDemo = true);
       try {
+        // Verify Token
+        final query = await FirebaseFirestore.instance
+            .collection('demo_tokens')
+            .where('corpsId', isEqualTo: corpsId)
+            .where('token', isEqualTo: confirm)
+            .get();
+
+        if (query.docs.isEmpty) {
+          throw Exception('Invalid or expired token.');
+        }
+
+        final tokenDoc = query.docs.first;
+        final expiresAtStr = tokenDoc.data()['expiresAt'] as String?;
+        if (expiresAtStr != null) {
+          final expiresAt = DateTime.parse(expiresAtStr);
+          if (DateTime.now().isAfter(expiresAt)) {
+            await tokenDoc.reference.delete();
+            throw Exception('Token has expired.');
+          }
+        }
+
+        // Delete token to prevent reuse
+        await tokenDoc.reference.delete();
+
+        // Run data load
         await DemoDataService.loadDemoData(corpsId);
+        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Demo data loaded successfully!')));
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading demo data: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}')));
         }
       } finally {
         if (mounted) setState(() => _isLoadingDemo = false);
       }
+    } else if (confirm != null) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid token format.')));
     }
   }
 }

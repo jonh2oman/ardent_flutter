@@ -115,5 +115,10 @@ service cloud.firestore {
       allow create: if request.auth != null && request.resource.data.corpsId == userCorpsId();
       allow update, delete: if request.auth != null && (resource.data.corpsId == userCorpsId() || isSystemAdmin() || isUnitSupportAdmin());
     }
+
+    // ---------------- DEMO TOKENS -----------------
+    match /demo_tokens/{tokenId} {
+      allow create, read, update, delete: if isSystemAdmin() || isUnitSupportAdmin() || (request.auth != null && userCorpsId() != null);
+    }
   }
 }
