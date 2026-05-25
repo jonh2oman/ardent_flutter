@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../data/fundraising_models.dart';
 
 class AssignmentTab extends StatefulWidget {
@@ -140,11 +142,11 @@ class _AssignmentTabState extends State<AssignmentTab> {
           const SizedBox(height: 16),
           const Text('Cadet', style: TextStyle(color: Colors.white70, fontSize: 12)),
           const SizedBox(height: 8),
-          StreamBuilder<QuerySnapshot>(
-            stream: _firestore.collection('corps').doc(widget.corpsId).collection('personnel').orderBy('lastName').snapshots(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) return const CircularProgressIndicator();
-              final cadets = snapshot.data!.docs;
+          Builder(
+            builder: (context) {
+              final auth = Provider.of<AuthProvider>(context, listen: false);
+              final cadetsList = List<dynamic>.from(auth.corpsData?.settings?['cadets'] ?? [])
+                ..sort((a, b) => (a['lastName'] ?? '').toString().compareTo((b['lastName'] ?? '').toString()));
 
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -160,9 +162,9 @@ class _AssignmentTabState extends State<AssignmentTab> {
                     isExpanded: true,
                     hint: const Text('Select a cadet...', style: TextStyle(color: Colors.white54)),
                     style: const TextStyle(color: Colors.white),
-                    items: cadets.map((doc) {
-                      final data = doc.data() as Map<String, dynamic>;
-                      return DropdownMenuItem(value: doc.id, child: Text('${data['lastName']}, ${data['firstName']}'));
+                    items: cadetsList.map((c) {
+                      final id = (c['uid'] ?? c['id'] ?? '').toString();
+                      return DropdownMenuItem(value: id, child: Text('${c['lastName']}, ${c['firstName']}'));
                     }).toList(),
                     onChanged: (val) => setState(() => _selectedCadetId = val),
                   ),
@@ -273,13 +275,12 @@ class _AssignmentTabState extends State<AssignmentTab> {
                 if (!assignmentSnap.hasData) return const Center(child: CircularProgressIndicator());
                 final assignments = assignmentSnap.data!.docs;
 
-                return FutureBuilder<QuerySnapshot>(
-                  future: _firestore.collection('corps').doc(widget.corpsId).collection('personnel').get(),
-                  builder: (context, cadetSnap) {
-                    if (!cadetSnap.hasData) return const SizedBox.shrink();
-                    final cadetDocs = cadetSnap.data!.docs;
-                    final cadetMap = {for (var doc in cadetDocs) doc.id: doc.data() as Map<String, dynamic>};
+                final auth = Provider.of<AuthProvider>(context, listen: false);
+                final cadetsList = List<dynamic>.from(auth.corpsData?.settings?['cadets'] ?? []);
+                final cadetMap = {for (var c in cadetsList) (c['uid'] ?? c['id'] ?? '').toString(): c as Map<String, dynamic>};
 
+                return Builder(
+                  builder: (context) {
                     return FutureBuilder<QuerySnapshot>(
                       future: _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(_selectedCampaignId).collection('products').get(),
                       builder: (context, productSnap) {
