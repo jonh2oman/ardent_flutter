@@ -127,8 +127,8 @@ class DemoDataService {
       await campRef.set({
         'name': c['name'],
         'description': 'Demo campaign generated automatically.',
-        'startDate': DateTime.now().subtract(Duration(days: 30)).toIso8601String(),
-        'endDate': DateTime.now().add(Duration(days: 30)).toIso8601String(),
+        'startDate': Timestamp.fromDate(DateTime.now().subtract(Duration(days: 30))),
+        'endDate': Timestamp.fromDate(DateTime.now().add(Duration(days: 30))),
         'goalAmount': c['goal'],
         'status': 'Active',
       });
@@ -159,7 +159,7 @@ class DemoDataService {
             'cadetId': cadet['id'],
             'productId': pId,
             'quantity': qty,
-            'assignedDate': DateTime.now().subtract(Duration(days: _random.nextInt(20))).toIso8601String(),
+            'timestamp': Timestamp.fromDate(DateTime.now().subtract(Duration(days: _random.nextInt(20)))),
             'notes': 'Demo assignment',
           });
 
@@ -170,7 +170,7 @@ class DemoDataService {
             await rRef.set({
               'cadetId': cadet['id'],
               'amountReturned': double.parse(returnAmount.toStringAsFixed(2)),
-              'returnDate': DateTime.now().subtract(Duration(days: _random.nextInt(5))).toIso8601String(),
+              'timestamp': Timestamp.fromDate(DateTime.now().subtract(Duration(days: _random.nextInt(5)))),
               'receiptNumber': 'REC-${_random.nextInt(9999)}',
               'notes': 'Demo return',
             });
