@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:provider/provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import '../../providers/auth_provider.dart';
 import '../../data/fundraising_models.dart';
 
 class ReportTab extends StatefulWidget {
@@ -15,6 +20,121 @@ class ReportTab extends StatefulWidget {
 class _ReportTabState extends State<ReportTab> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   String? _selectedCampaignId;
+
+  Future<void> _generatePdf() async {
+    if (_selectedCampaignId == null) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Generating PDF...')));
+
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final cadetsList = List<dynamic>.from(auth.corpsData?.settings?['cadets'] ?? []);
+      final cadetMap = {for (var c in cadetsList) (c['uid'] ?? c['id'] ?? '').toString(): c as Map<String, dynamic>};
+
+      final productSnap = await _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(_selectedCampaignId).collection('products').get();
+      final productMap = {for (var doc in productSnap.docs) doc.id: doc.data() as Map<String, dynamic>};
+
+      final assignSnap = await _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(_selectedCampaignId).collection('assignments').get();
+      final returnSnap = await _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(_selectedCampaignId).collection('returns').get();
+
+      // Aggregate Assignments
+      Map<String, double> assignedValues = {};
+      for (var doc in assignSnap.docs) {
+        final a = FundraisingAssignment.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+        final pData = productMap[a.productId];
+        final price = pData != null ? (pData['price'] ?? 0.0).toDouble() : 0.0;
+        final value = a.quantity * price;
+        assignedValues[a.cadetId] = (assignedValues[a.cadetId] ?? 0.0) + value;
+      }
+
+      // Aggregate Returns
+      Map<String, double> returnedValues = {};
+      for (var doc in returnSnap.docs) {
+        final r = FundraisingReturn.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+        returnedValues[r.cadetId] = (returnedValues[r.cadetId] ?? 0.0) + r.amountReturned;
+      }
+
+      // Combine into list
+      List<Map<String, dynamic>> rows = [];
+      double grandTotalAssigned = 0;
+      double grandTotalReturned = 0;
+
+      for (var cadetId in assignedValues.keys) {
+        final assigned = assignedValues[cadetId] ?? 0.0;
+        final returned = returnedValues[cadetId] ?? 0.0;
+        final cData = cadetMap[cadetId];
+        final name = cData != null ? '${cData['rank'] ?? ''} ${cData['lastName']}, ${cData['firstName']}' : 'Unknown';
+        
+        rows.add({
+          'name': name,
+          'assigned': assigned,
+          'returned': returned,
+          'progress': assigned > 0 ? (returned / assigned).clamp(0.0, 1.0) : 0.0,
+        });
+
+        grandTotalAssigned += assigned;
+        grandTotalReturned += returned;
+      }
+
+      rows.sort((a, b) => b['progress'].compareTo(a['progress']));
+
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.MultiPage(
+          build: (pw.Context context) {
+            return [
+              pw.Text('Fundraising Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 20),
+              pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.grey300),
+                children: [
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                    children: [
+                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Cadet', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Value Assigned', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Money Returned', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Progress', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                    ],
+                  ),
+                  ...rows.map((r) {
+                    return pw.TableRow(
+                      children: [
+                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(r['name'])),
+                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('\$${r['assigned'].toStringAsFixed(2)}')),
+                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('\$${r['returned'].toStringAsFixed(2)}')),
+                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('${(r['progress'] * 100).toInt()}%')),
+                      ],
+                    );
+                  }).toList(),
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(color: PdfColors.grey100),
+                    children: [
+                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Totals', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('\$${grandTotalAssigned.toStringAsFixed(2)}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('\$${grandTotalReturned.toStringAsFixed(2)}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('')),
+                    ],
+                  ),
+                ],
+              ),
+            ];
+          },
+        ),
+      );
+
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+        name: 'Fundraising_Report.pdf',
+      );
+
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error generating PDF: $e')));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,9 +216,7 @@ class _ReportTabState extends State<ReportTab> {
                 ],
               ),
               OutlinedButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF generation coming soon!')));
-                },
+                onPressed: _generatePdf,
                 icon: const Icon(LucideIcons.downloadCloud, size: 16),
                 label: const Text('Generate PDF'),
                 style: OutlinedButton.styleFrom(
@@ -111,12 +229,11 @@ class _ReportTabState extends State<ReportTab> {
           const SizedBox(height: 24),
           
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore.collection('corps').doc(widget.corpsId).collection('personnel').snapshots(),
-              builder: (context, cadetSnap) {
-                if (!cadetSnap.hasData) return const Center(child: CircularProgressIndicator());
-                final cadetDocs = cadetSnap.data!.docs;
-                final cadetMap = {for (var doc in cadetDocs) doc.id: doc.data() as Map<String, dynamic>};
+            child: Builder(
+              builder: (context) {
+                final auth = Provider.of<AuthProvider>(context, listen: false);
+                final cadetsList = List<dynamic>.from(auth.corpsData?.settings?['cadets'] ?? []);
+                final cadetMap = {for (var c in cadetsList) (c['uid'] ?? c['id'] ?? '').toString(): c as Map<String, dynamic>};
 
                 return StreamBuilder<QuerySnapshot>(
                   stream: _firestore.collection('corps').doc(widget.corpsId).collection('fundraising_campaigns').doc(_selectedCampaignId).collection('products').snapshots(),
