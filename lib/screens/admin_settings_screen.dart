@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/auth_provider.dart';
 import '../models/user_data.dart';
+import '../services/demo_data_service.dart';
 
 class AdminSettingsScreen extends StatelessWidget {
   const AdminSettingsScreen({super.key});
@@ -181,6 +182,7 @@ class _UnitConfigCard extends StatefulWidget {
 }
 
 class _UnitConfigCardState extends State<_UnitConfigCard> {
+  bool _isLoadingDemo = false;
   late TextEditingController _nameController;
   late TextEditingController _designationController;
   late TextEditingController _rankController;
@@ -396,6 +398,8 @@ class _UnitConfigCardState extends State<_UnitConfigCard> {
                     _buildField('Orders Header Block (French)', _ordersHeaderFrController, maxLines: 3),
                     const SizedBox(height: 24),
                     _buildDivisionsSection(theme, settings),
+                    const SizedBox(height: 32),
+                    _buildDemoDataSection(theme),
                   ],
                 ),
               ),
@@ -499,5 +503,71 @@ class _UnitConfigCardState extends State<_UnitConfigCard> {
     await FirebaseFirestore.instance.collection('corps').doc(corpsId).update({
       'settings': settings,
     });
+  }
+
+  Widget _buildDemoDataSection(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(LucideIcons.database, size: 14, color: Colors.white30),
+            const SizedBox(width: 8),
+            const Text('DEMO ENVIRONMENT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orangeAccent, letterSpacing: 1.2)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        const Text('Load realistic sample data (Cadets, Uniforms, Campaigns) for testing. WARNING: This will permanently delete existing data in those modules.', style: TextStyle(fontSize: 12, color: Colors.white54)),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: _isLoadingDemo ? null : () => _confirmLoadDemoData(context),
+          icon: _isLoadingDemo 
+            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(LucideIcons.refreshCw, size: 16),
+          label: Text(_isLoadingDemo ? 'LOADING...' : 'LOAD DEMO DATA'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.orangeAccent,
+            side: BorderSide(color: Colors.orangeAccent.withOpacity(0.5)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _confirmLoadDemoData(BuildContext context) async {
+    final corpsId = widget.auth.userData?.corpsId;
+    if (corpsId == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Load Demo Data?'),
+        content: const Text('This will wipe your current cadets, uniform inventory, and fundraising data, and replace it with dummy data. This cannot be undone. Proceed?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true), 
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text('PROCEED'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() => _isLoadingDemo = true);
+      try {
+        await DemoDataService.loadDemoData(corpsId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Demo data loaded successfully!')));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading demo data: $e')));
+        }
+      } finally {
+        if (mounted) setState(() => _isLoadingDemo = false);
+      }
+    }
   }
 }
